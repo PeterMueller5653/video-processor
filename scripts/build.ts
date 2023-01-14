@@ -2,7 +2,7 @@ import { exec } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
-const pkg: {
+const pkg: () => {
   id: string
   name: string
   version: string
@@ -18,7 +18,8 @@ const pkg: {
   }[]
   entrycount: number
   bundled: any[]
-}[] = JSON.parse(fs.readFileSync(path.join('bin', 'package.json'), 'utf8'))
+}[] = () =>
+  JSON.parse(fs.readFileSync(path.join('bin', 'package.json'), 'utf8'))
 
 const runCommand = async (command: string) => {
   const childProcess = exec(command)
@@ -36,7 +37,16 @@ const runCommand = async (command: string) => {
 }
 
 const main = async () => {
-  for (const p of pkg) {
+  if (!fs.existsSync('bin')) fs.mkdirSync('bin', { recursive: true })
+  
+  await runCommand(
+    'npm pack --json --pack-destination bin > ./bin/package.json'
+  ).catch((error) => {
+    console.error(error)
+    return
+  })
+
+  for (const p of pkg()) {
     const { name, filename } = p
 
     console.log(`Uninstalling old version of ${name}...`)

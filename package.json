@@ -8,7 +8,7 @@
   },
   "scripts": {
     "package": "tsc -p .",
-    "install-package": "npm pack --json --pack-destination bin > ./bin/package.json && ts-node-esm scripts/build.ts && npm install -g ./bin/video-processor.tgz",
+    "install-package": "ts-node-esm scripts/build.ts && npm install -g ./bin/video-processor.tgz",
     "start": "ts-node-esm src/full.ts",
     "test": "ts-node-esm src/test.ts",
     "proccess": "ts-node-esm src/index.ts",
