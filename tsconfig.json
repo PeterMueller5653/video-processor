@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "lib": ["es5", "es6", "dom"],
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "typeRoots": ["node_modules/@types", "typings"],
+    "sourceMap": true,
+    "outDir": "dist",
+    "downlevelIteration": true,
+  },
+  "exclude": ["node_modules", "typings", "ts"]
+}

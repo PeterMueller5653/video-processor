@@ -1,0 +1,11 @@
+*
+!*.js
+!dist
+dist/test.js
+!package.json
+!tsconfig.json
+!pnpm-lock.yaml
+!package-lock.json
+!yarn.lock
+!.gitignore
+!.npmignore

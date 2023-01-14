@@ -1,0 +1,13 @@
+*
+!*.ts
+!src
+src/test.ts
+!scripts
+!typings
+!package.json
+!tsconfig.json
+!pnpm-lock.yaml
+!package-lock.json
+!yarn.lock
+!.gitignore
+!.npmignore
