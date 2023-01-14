@@ -4,6 +4,9 @@
 src/test.ts
 !scripts
 !typings
+!.github
+!.github/workflows
+!.github/workflows/build.yml
 !package.json
 !tsconfig.json
 !pnpm-lock.yaml
