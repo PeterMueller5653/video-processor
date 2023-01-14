@@ -9,6 +9,11 @@ concurrency:
   group: 'ci-build'
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
 jobs:
   buildMaster:
     name: Build node package from master
@@ -49,5 +54,5 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           automatic_release_tag: latest
           prerelease: false
-          title: "Release ${{ github.ref }}"
+          title: 'Release ${{ github.ref }}'
           files: bin/*.tgz
