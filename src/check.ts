@@ -55,6 +55,7 @@ const main = async () => {
           )} that are being recorded`
         )
       )
+      logUpdate.done()
     }
 
     if (fileCount !== 0) logUpdate.done()
