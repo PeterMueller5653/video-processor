@@ -74,10 +74,11 @@ const main = async () => {
     args.includes('--full') ||
     args.includes('-f')
 
-  const page =
-    args.includes('--page') || args.includes('-pg')
-      ? args[args.indexOf('--page') + 1]
-      : null
+  const page = args.includes('--page')
+    ? args[args.indexOf('--page') + 1]
+    : args.includes('-pg')
+    ? args[args.indexOf('-pg') + 1]
+    : null
 
   logUpdate.done()
 

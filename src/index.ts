@@ -332,6 +332,7 @@ async function run(merge: boolean = false, page: string): Promise<string[]> {
           })
           .filter((video) => video) as string[])
       : files.map(({ file }) => file)
+
     for (let file of fileList) {
       const sceneResponse = await searchVideo({ q: `${file} ${name}` }).catch(
         () => null
