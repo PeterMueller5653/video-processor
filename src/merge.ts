@@ -1,4 +1,4 @@
-import * as ffmpeg from 'fluent-ffmpeg'
+import ffmpeg from 'fluent-ffmpeg'
 import fs from 'fs'
 import { humanFileSize } from './utils.js'
 
@@ -21,7 +21,7 @@ async function run() {
     const files = getFiles(folder)
     if (files.map(({ file }) => file).includes('merge')) {
       await new Promise((res) => {
-        const ff = new ffmpeg.FfmpegCommand()
+        const ff = ffmpeg()
         const newPath = `${files[0].dir}/${files[0].file
           .replace('.mp4', '-full.mp4')
           .replace('.ts', '-full.ts')}`

@@ -1,5 +1,5 @@
 import chalk from 'chalk'
-import * as ffmpeg from 'fluent-ffmpeg'
+import ffmpeg from 'fluent-ffmpeg'
 import fs from 'fs'
 import logUpdate from 'log-update'
 import pathLib from 'path'
@@ -143,7 +143,7 @@ async function run(merge: boolean = false, page: string): Promise<string[]> {
         logUpdate(loading(`${currentLine}\n${ln}\n${progressBar(progress)}`))
       }, 150)
       await new Promise((res) =>
-        new ffmpeg.FfmpegCommand(path)
+        ffmpeg(path)
           .inputOptions('-hwaccel', 'cuda', '-hwaccel_output_format', 'cuda')
           .addOptions('-cpu-used', '5')
           .audioCodec('aac')
