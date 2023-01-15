@@ -77,7 +77,7 @@ const main = async () => {
   const page =
     args.includes('--page') || args.includes('-pg')
       ? args[args.indexOf('--page') + 1]
-      : ''
+      : null
 
   logUpdate.done()
 
@@ -101,6 +101,7 @@ const main = async () => {
   }
 
   if (doProcess) {
+    if (!page) throw new Error('Page name is required for processing videos')
     logUpdate('Processing videos')
     await processVideos(true, page)
     logUpdate(chalk.greenBright('Finished processing videos'))

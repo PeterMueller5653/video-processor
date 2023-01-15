@@ -37,6 +37,11 @@ const appendDataToCSVFile = async (data: {
   )
   const parser = new Json2csvParser({ fields })
 
+  if (!fs.existsSync(csvFilePath)) {
+    fs.mkdirSync('./stats', { recursive: true })
+    fs.writeFileSync(csvFilePath, '')
+  }
+
   const jsonObj = await csv().fromFile(csvFilePath)
 
   const index = jsonObj.findIndex((obj) => obj.date === csvData.date)

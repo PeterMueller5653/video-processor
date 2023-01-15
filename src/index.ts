@@ -254,7 +254,7 @@ async function run(merge: boolean = false, page: string): Promise<string[]> {
         const interval = setInterval(() => {
           logUpdate(loading(`${prefix}\n${ln}\n${progressBar(progress)}`))
         }, 150)
-        const ff = new ffmpeg.FfmpegCommand()
+        const ff = ffmpeg()
         for (let video of videos) {
           ff.input(video)
           totalSize += fs.statSync(video).size
