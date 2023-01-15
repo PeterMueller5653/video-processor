@@ -31,20 +31,45 @@ export function dateToString(date: Date): string {
   } ${date.getFullYear()} ${hours}:${minutes}:${seconds}`
 }
 
-export function formatDate(string: string): string {
+export function dateToTimeString(date: Date, format?: string): string {
+  const hours =
+    date.getHours() > 9 ? date.getHours().toString() : `0${date.getHours()}`
+  const minutes =
+    date.getMinutes() > 9
+      ? date.getMinutes().toString()
+      : `0${date.getMinutes()}`
+  const seconds =
+    date.getSeconds() > 9
+      ? date.getSeconds().toString()
+      : `0${date.getSeconds()}`
+  const milliseconds =
+    date.getMilliseconds() > 99
+      ? date.getMilliseconds().toString()
+      : date.getMilliseconds() > 9
+      ? `0${date.getMilliseconds()}`
+      : `00${date.getMilliseconds()}`
+
+  const timeFormat = format || 'hh:mm:ss'
+
+  return timeFormat
+    .replace('hh', hours)
+    .replace('mm', minutes)
+    .replace('ss', seconds)
+    .replace('SSS', milliseconds)
+}
+
+export function formatDate(string: string): Date {
   const [date, time] = string.replace(/(\.mp4|\.merged\.mp4)/g, '').split('_')
 
   const [year, month, day] = date.split('-')
   const [hour, minute, second] = time.split('-')
-  return dateToString(
-    new Date(
-      Number(year),
-      Number(month),
-      Number(day),
-      Number(hour),
-      Number(minute),
-      Number(second)
-    )
+  return new Date(
+    Number(year),
+    Number(month),
+    Number(day),
+    Number(hour),
+    Number(minute),
+    Number(second)
   )
 }
 
@@ -108,4 +133,9 @@ export function loading(line: string, index?: number): string {
     lastFrame + 100 < Date.now() ? index ?? frameIndex++ : index ?? frameIndex
   if (lastFrame + 100 < Date.now()) lastFrame = Date.now()
   return line.replace(/\[ \]/g, `[${chalk.yellow(frameString[fIndex])}]`)
+}
+
+export function getTimeInSeconds(time: string): number {
+  const [hours, minutes, seconds] = time.split(':').map(Number)
+  return hours * 3600 + minutes * 60 + seconds
 }

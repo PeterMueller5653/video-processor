@@ -15,7 +15,10 @@ import {
 import {
   calculateEta,
   clamp,
+  dateToString,
+  dateToTimeString,
   formatDate,
+  getTimeInSeconds,
   humanFileSize,
   loading,
   millisecondsToTime,
@@ -115,7 +118,22 @@ const Processed = (
   return line
 }
 
-async function run(merge: boolean = false, page: string): Promise<string[]> {
+async function run(
+  merge: boolean = false,
+  page: string,
+  debug: boolean = false
+): Promise<string[]> {
+  const log = (...message: any[]) => {
+    if (debug)
+      fs.appendFileSync(
+        './debug.log',
+        `[PROCESS] [${dateToTimeString(
+          new Date(),
+          'hh:mm:ss.SSS'
+        )}] ${message.join(' ')}\n`
+      )
+  }
+
   const processedFiles: string[] = []
   const folders = getDirectories('./ts')
   const prefixes: string[] = []
@@ -129,6 +147,7 @@ async function run(merge: boolean = false, page: string): Promise<string[]> {
       }))
 
     if (rawFiles.filter((f) => f.file === '.skip').length > 0) {
+      log(`Skipping ${name} because of .skip file`)
       prefixes.push(
         Skipped({ position: index + 1, total: folders.length }, name)
       )
@@ -172,19 +191,20 @@ async function run(merge: boolean = false, page: string): Promise<string[]> {
       const interval = setInterval(() => {
         logUpdate(loading(`${currentLine}\n${ln}\n${progressBar(progress)}`))
       }, 150)
+      log(`Processing ${path} => ${newPath}`)
       await new Promise((res) =>
         ffmpeg(path)
-          .inputOptions('-hwaccel', 'cuda', '-hwaccel_output_format', 'cuda')
+          .inputOptions('-hwaccel', 'cuda')
           .addOptions('-cpu-used', '5')
           .audioCodec('aac')
           .videoCodec('h264_nvenc')
           .on('error', (error) => {
             clearInterval(interval)
-            logUpdate(
-              `${currentLine}\n${chalk.redBright('Error:')} ${chalk.whiteBright(
-                error
-              )}`
-            )
+            mainPrefix += `${currentLine}\n${chalk.redBright(
+              'Error:'
+            )} ${chalk.whiteBright(error)}`
+            logUpdate(mainPrefix)
+            log(`Error: ${error}`)
             res(null)
           })
           .on(
@@ -213,6 +233,7 @@ async function run(merge: boolean = false, page: string): Promise<string[]> {
             logUpdate(mainPrefix)
             fs.unlinkSync(path)
             videos.push(newPath)
+            log(`Processed ${path} => ${newPath}`)
             res(null)
           })
           .save(newPath)
@@ -223,21 +244,67 @@ async function run(merge: boolean = false, page: string): Promise<string[]> {
     const groupedVideos: {
       [key: string]: string[]
     } = {}
+
+    const mergeGroups: {
+      [key: string]: {
+        video: string
+        duration: number
+        created: Date
+      }[]
+    } = {}
     for (let video of videos) {
-      const date = video.split('/').pop()?.split('_')[0]
+      const [date, rest] = video.split('/').pop()?.split('_') ?? []
       if (!date) continue
       if (!groupedVideos[date]) groupedVideos[date] = []
       groupedVideos[date].push(video)
+
+      const duration = await new Promise<number>((res) => {
+        ffmpeg.ffprobe(video, (err, metadata) => {
+          if (err) return res(0)
+          res(metadata.format.duration ?? 0)
+        })
+      })
+      const created = formatDate(`${date}_${rest}`)
+      log(
+        `Duration: ${duration} Created: ${created.toISOString()} End: ${new Date(
+          created.getTime() + duration * 1000
+        ).toISOString()}`
+      )
+      log(
+        duration * 1000,
+        created.getTime(),
+        duration * 1000 + created.getTime()
+      )
+
+      const [key, lastMergeGroup] = Object.entries(mergeGroups).pop() ?? []
+      log(key, JSON.stringify(lastMergeGroup))
+      if (
+        key &&
+        lastMergeGroup &&
+        lastMergeGroup.length > 0 &&
+        lastMergeGroup.reverse()[0].created.getTime() +
+          (duration + 5 * 60) * 1000 >
+          created.getTime()
+      ) {
+        mergeGroups[key].push({ video, duration, created })
+        log(`Added ${video} to ${key}`)
+      } else {
+        const newKey = `${created.toISOString()}_${Math.random()
+          .toString(36)
+          .substring(2, 15)}`
+        mergeGroups[newKey] = [{ video, duration, created }]
+        log(`Created new group ${newKey} for ${video}`)
+      }
     }
 
     if (merge && videos.length > 1) {
-      const total = Object.keys(groupedVideos).length
-      for (let date in groupedVideos) {
-        const position = Object.keys(groupedVideos).indexOf(date) + 1
-        const videos = groupedVideos[date]
+      const total = Object.keys(mergeGroups).length
+      for (let group in mergeGroups) {
+        const position = Object.keys(mergeGroups).indexOf(group) + 1
+        const videos = mergeGroups[group]
 
         if (videos.length === 1) continue
-        const mergedPath = videos[0].replace('.mp4', '.merged.mp4')
+        const mergedPath = videos[0].video.replace('.mp4', '.merged.mp4')
         const prefix = [
           mainPrefix,
           Processing(
@@ -246,7 +313,7 @@ async function run(merge: boolean = false, page: string): Promise<string[]> {
           ),
         ].join('\n')
 
-        let totalSize = 0
+        let totalDuration = 0
 
         let progress = 0
         let ln = ''
@@ -255,13 +322,15 @@ async function run(merge: boolean = false, page: string): Promise<string[]> {
           logUpdate(loading(`${prefix}\n${ln}\n${progressBar(progress)}`))
         }, 150)
         const ff = ffmpeg()
-        for (let video of videos) {
+        for (let { video, duration } of videos) {
           ff.input(video)
-          totalSize += fs.statSync(video).size
+          totalDuration += duration
         }
+        log(`Merging ${videos.length} videos => ${mergedPath}`)
         await new Promise((res, rej) =>
           ff
             .on('error', (error) => {
+              log(`Error: ${error}`)
               logUpdate(
                 `${prefix}\n${chalk.redBright('Error:')} ${chalk.whiteBright(
                   error
@@ -270,20 +339,19 @@ async function run(merge: boolean = false, page: string): Promise<string[]> {
               rej()
             })
             .on('progress', ({ currentFps, frames, targetSize, timemark }) => {
-              const percent = (targetSize * 1024 * 100) / totalSize
+              const percent = (getTimeInSeconds(timemark) / totalDuration) * 100
               const eta = millisecondsToTime(
                 calculateEta(startTime, clamp(percent, 0, 100))
               )
               const duration = millisecondsToTime(Date.now() - startTime)
               ln = `[ ] FPS: ${currentFps}\n[ ] Frames: ${frames}\n[ ] Size: ${humanFileSize(
                 targetSize * 1024
-              )}/${humanFileSize(
-                totalSize
               )}\n[ ] Timemark: ${timemark}\n[ ] Duration: ${duration}\n[ ] ETA: ${eta}`
 
               progress = percent
             })
             .on('end', () => {
+              log(`Merged ${videos.length} videos => ${mergedPath}`)
               clearInterval(interval)
               const line = Processed(
                 { position, total },
@@ -291,7 +359,7 @@ async function run(merge: boolean = false, page: string): Promise<string[]> {
               )
               mainPrefix += `\n${line}`
               logUpdate(mainPrefix)
-              for (let video of videos) fs.unlinkSync(video)
+              for (let video of videos) fs.unlinkSync(video.video)
               res(null)
             })
             .concat(mergedPath)
@@ -338,6 +406,8 @@ async function run(merge: boolean = false, page: string): Promise<string[]> {
         () => null
       )
 
+      log(`Scene response: ${JSON.stringify(sceneResponse)}`)
+
       if (sceneResponse?.scenes?.length !== 1) {
         logUpdate(
           `${mainPrefix}\n${chalk.redBright('Error:')} ${chalk.whiteBright(
@@ -351,11 +421,13 @@ async function run(merge: boolean = false, page: string): Promise<string[]> {
       const performer =
         performerResponse?.count === 1 ? performerResponse.performers[0] : null
 
+      log(`Performer response: ${JSON.stringify(performerResponse)}`)
+
       const date = file.split('_')[0]
 
       logUpdate(`${mainPrefix}\n${chalk.yellow(`Edit scene ${name}`)}`)
       const result = await editScene(sceneResponse.scenes[0].id, {
-        title: `${formatDate(file)} - ${name}`,
+        title: `${dateToString(formatDate(file))} - ${name}`,
         url: `https://${page}.com/${name}/`,
         date: date,
         studio_id: sceneResponse.scenes[0].studio?.id ?? '2',
@@ -363,7 +435,10 @@ async function run(merge: boolean = false, page: string): Promise<string[]> {
         performer_ids: performer
           ? [performer?.id]
           : sceneResponse.scenes[0].performers.map((performer) => performer.id),
-      }).catch(() => null)
+      }).catch((error) => {
+        log(`Edit Scene Error: ${error}`)
+        return false
+      })
 
       if (result) processedFiles.push(file)
 

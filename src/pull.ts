@@ -2,19 +2,32 @@ import chalk from 'chalk'
 import fs from 'fs'
 import logUpdate from 'log-update'
 import Client from 'ssh2-sftp-client'
-import { humanFileSize, loading, progressBar, secondsToTime } from './utils.js'
+import { dateToTimeString, humanFileSize, loading, progressBar, secondsToTime } from './utils.js'
 
 const mainPath = '/media/pi/rec/rec'
 
 const sftp = new Client()
 
-const main = async () => {
+const main = async (debug: boolean = false) => {
+  const log = (message: string) => {
+    if (debug)
+      fs.appendFileSync('./debug.log', `[PULL] [${dateToTimeString(
+        new Date(),
+        'hh:mm:ss.SSS'
+      )}] ${message}\n`)
+  }
+
   logUpdate(chalk.blue('Connecting to pi.hole...'))
   await sftp.connect({
     host: 'pi.hole',
     port: 22,
     username: 'pi',
     password: 'raspberry',
+  }).catch((err) => {
+    log(`Error connecting to pi.hole: ${err}`)
+    logUpdate(chalk.red('Error connecting to pi.hole'))
+    logUpdate.done()
+    return
   })
 
   logUpdate(chalk.blue('Loading folders...'))
@@ -49,12 +62,14 @@ const main = async () => {
       logUpdate.done()
       fs.mkdirSync(`./ts/${folder.name}`, { recursive: true })
       fs.writeFileSync(`./ts/${folder.name}/.skip`, '')
+      log(`Marked ${folder.name} to be skipped processing because it still has files being recorded`)
     }
 
     for (const file of filtered) {
       logUpdate(chalk.blue(`Adding ${chalk.yellow(file.name)} to pull list`))
       filesToPull.push(`${mainPath}/${folder.name}/${file.name}`)
       totalFileSize += file.size
+      log(`Added ${file.name} to pull list`)
     }
 
     logUpdate(
@@ -79,6 +94,7 @@ const main = async () => {
       !fs.existsSync(file.replace(mainPath, './ts').replace(/\/[^\/]*$/, ''))
     ) {
       logUpdate(chalk.blue(`Creating ${chalk.yellow(fileFolder)}`))
+      log(`Creating ${fileFolder}`)
       fs.mkdirSync(file.replace(mainPath, './ts').replace(/\/[^\/]*$/, ''), {
         recursive: true,
       })
@@ -153,6 +169,7 @@ const main = async () => {
         logUpdate(chalk.blue(`Deleting ${chalk.yellow(file)}`))
         downloaded += fileStats.size
         await sftp.delete(file)
+        log(`Pulled and deleted ${file}`)
         logUpdate(
           `[${chalk.greenBright('✓')}] ${chalk.green(
             `Downloaded [${index}/${fileCount}] ${chalk.yellow(
@@ -162,7 +179,8 @@ const main = async () => {
         )
         logUpdate.done()
       })
-      .catch(() => {
+      .catch((error) => {
+        log(`Failed to pull ${file} because ${error}`)
         logUpdate(
           `[${chalk.redBright('✗')}] ${chalk.red(
             `Donwload failed [${index}/${fileCount}] ${chalk.yellow(
