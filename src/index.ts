@@ -283,7 +283,7 @@ async function run(
         lastMergeGroup &&
         lastMergeGroup.length > 0 &&
         lastMergeGroup.reverse()[0].created.getTime() +
-          (duration + 5 * 60) * 1000 >
+          (duration + 15 * 60) * 1000 >
           created.getTime()
       ) {
         mergeGroups[key].push({ video, duration, created })
@@ -331,6 +331,9 @@ async function run(
         log(`Merging ${videos.length} videos => ${mergedPath}`)
         await new Promise((res, rej) =>
           ff
+            .inputOptions('-safe 0')
+            .videoCodec('copy')
+            .audioCodec('copy')
             .on('error', (error) => {
               log(`Error: ${error}`)
               logUpdate(
