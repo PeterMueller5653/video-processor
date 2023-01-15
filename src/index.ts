@@ -298,7 +298,9 @@ async function run(
     }
 
     if (merge && videos.length > 1) {
-      const total = Object.keys(mergeGroups).length
+      const total = Object.keys(mergeGroups).filter(
+        (g) => mergeGroups[g].length > 1
+      ).length
       for (let group in mergeGroups) {
         const position = Object.keys(mergeGroups).indexOf(group) + 1
         const videos = mergeGroups[group]
