@@ -30,10 +30,28 @@ const main = async () => {
 
     const files = await sftp.list(`${mainPath}/${folder.name}`)
 
-    for (const file of files.filter(
+    const filtered = files.filter(
       (file) =>
         file.type !== 'd' && file.modifyTime < Date.now() - 1000 * 60 * 5
-    )) {
+    )
+
+    if (fs.existsSync(`./ts/${folder.name}/.skip`))
+      fs.unlinkSync(`./ts/${folder.name}/.skip`)
+
+    if (files.length !== filtered.length) {
+      logUpdate(
+        chalk.blue(
+          `Mark ${chalk.yellow(
+            folder.name
+          )} to be skipped processing because it still has files being recorded`
+        )
+      )
+      logUpdate.done()
+      fs.mkdirSync(`./ts/${folder.name}`, { recursive: true })
+      fs.writeFileSync(`./ts/${folder.name}/.skip`, '')
+    }
+
+    for (const file of filtered) {
       logUpdate(chalk.blue(`Adding ${chalk.yellow(file.name)} to pull list`))
       filesToPull.push(`${mainPath}/${folder.name}/${file.name}`)
       totalFileSize += file.size

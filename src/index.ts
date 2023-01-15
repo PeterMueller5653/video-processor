@@ -73,6 +73,27 @@ const Processing = (
   return line
 }
 
+const Skipped = (
+  {
+    position,
+    total,
+  }: {
+    position: number
+    total: number
+  },
+  message: string,
+  log: boolean = false
+): string => {
+  const line =
+    `[${chalk.yellowBright('!')}] ` +
+    chalk.yellowBright(
+      `Skipped [${position}/${total}]:`,
+      chalk.whiteBright(message)
+    )
+  if (log) console.log(line)
+  return line
+}
+
 const Processed = (
   {
     position,
@@ -99,12 +120,21 @@ async function run(merge: boolean = false, page: string): Promise<string[]> {
   const folders = getDirectories('./ts')
   const prefixes: string[] = []
   for (let [index, { folder, name }] of folders.entries()) {
-    const files = getFiles(folder)
+    const rawFiles = getFiles(folder)
+    const files = rawFiles
       .filter((f) => f.file.endsWith('.ts') || f.file.endsWith('.mp4'))
       .map((f) => ({
         ...f,
         stats: fs.statSync(pathLib.join(f.dir, f.file)),
       }))
+
+    if (rawFiles.filter((f) => f.file === '.skip').length > 0) {
+      prefixes.push(
+        Skipped({ position: index + 1, total: folders.length }, name)
+      )
+      continue
+    }
+
     const totalSize = files.reduce((a, b) => a + b.stats.size, 0)
     const modelPrefix = Processing(
       { position: index + 1, total: folders.length },
