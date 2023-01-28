@@ -29,7 +29,7 @@ const run = async ({
   const links = []
   for (let i = 1; i <= count; i++) {
     const number = `${'0'.repeat(4 - i.toString().length)}${i}`
-    const num = i >= 1000 ? 2 : 1
+    const num = i >= 1000 ? Number(i.toString()[0]) + 1 : 1
 
     const imageLink = `https://fapello.com/content/${username[0]}/${username[1]}/${username}/${num}000/${username}_${number}.jpg`
 

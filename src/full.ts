@@ -169,6 +169,7 @@ const main = async () => {
       username: page,
       count: Number(count) ?? 1,
       output: output,
+      debug: doDebug,
     })
     logUpdate(chalk.greenBright('Finished getting fapello links'))
     logUpdate.done()

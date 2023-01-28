@@ -1138,8 +1138,7 @@ export async function waitForJobs(prefix: string = '') {
       if (jobs)
         logUpdate(
           `${loading(
-            `${prefix}
-            ${Processing('Scanning and tagging new scenes.')}`,
+            `${prefix} ${Processing('Scanning and tagging new scenes.')}`,
             frameIndex
           )}
           ${buildProgressLines(jobs)}${currentStatus(jobs)}`

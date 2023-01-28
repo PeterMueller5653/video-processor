@@ -52,7 +52,10 @@ async function run(page: string, debug: boolean = false) {
       )
   }
 
-  const files = getFiles('./instagram/' + page)
+  const files = page
+    .split(',')
+    .map((user) => getFiles(`./instagram/${user}`))
+    .reduce((a, b) => a.concat(b), [])
 
   for (const { file } of files) {
     const { date, username, postId, index, total } = getPostData(file)
