@@ -1,4 +1,14 @@
 import chalk from 'chalk'
+import childProcess from 'child_process'
+import fs from 'fs'
+import os from 'os'
+import pathLib from 'path'
+import process from 'process'
+import { promisify } from 'util'
+
+const exec = promisify(childProcess.exec)
+
+let cpuUsage = process.cpuUsage()
 
 const frameString = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
 let frameIndex = 0
@@ -27,7 +37,7 @@ export function dateToString(date: Date): string {
     date.getSeconds() > 9 ? date.getSeconds() : `0${date.getSeconds()}`
 
   return `${date.getDate()} ${
-    monthNames[date.getMonth()]
+    monthNames[date.getMonth() - 1]
   } ${date.getFullYear()} ${hours}:${minutes}:${seconds}`
 }
 
@@ -138,4 +148,101 @@ export function loading(line: string, index?: number): string {
 export function getTimeInSeconds(time: string): number {
   const [hours, minutes, seconds] = time.split(':').map(Number)
   return hours * 3600 + minutes * 60 + seconds
+}
+
+export function getCpuUsageInPercent(): string {
+  const newCpuUsage = process.cpuUsage()
+  const cpuUsageDelta = {
+    user: newCpuUsage.user - cpuUsage.user,
+    system: newCpuUsage.system - cpuUsage.system,
+  }
+  cpuUsage = newCpuUsage
+  return (
+    (
+      ((cpuUsageDelta.user + cpuUsageDelta.system) /
+        (os.cpus().length * 1000000)) *
+      100
+    ).toFixed(4) + '%'
+  )
+}
+
+export function getMemoryUsageHuman(): string {
+  return humanFileSize(process.memoryUsage().rss)
+}
+
+export function getMemoryUsageInPercent(): string {
+  return ((process.memoryUsage().rss / os.totalmem()) * 100).toFixed(4) + '%'
+}
+
+let lastMemoryCheck = 0
+let lastMemory = 0
+export async function getMemoryUsageHumanForProcess(
+  process: string
+): Promise<string> {
+  if (lastMemoryCheck + 1000 > Date.now()) return humanFileSize(lastMemory)
+  lastMemoryCheck = Date.now()
+  const { stdout } = await exec(
+    `tasklist /fi "imagename eq ${process}.exe" /fo csv /nh`
+  )
+
+  let totalMemory = 0
+
+  stdout.split('\n').forEach((line) => {
+    if (line.includes(process)) {
+      const memory = line.split(',')[4].replace(/"/g, '')
+      totalMemory += parseInt(memory)
+    }
+  })
+  lastMemory = totalMemory * 1000 * 1024
+  return humanFileSize(totalMemory * 1000 * 1024)
+}
+
+export async function getMemoryUsageInPercentForProcess(
+  process: string
+): Promise<string> {
+  if (lastMemoryCheck + 1000 > Date.now())
+    return ((lastMemory / os.totalmem()) * 100).toFixed(4) + '%'
+  lastMemoryCheck = Date.now()
+  const { stdout } = await exec(
+    `tasklist /fi "imagename eq ${process}.exe" /fo csv /nh`
+  )
+
+  let totalMemory = 0
+
+  stdout.split('\n').forEach((line) => {
+    if (line.includes(process)) {
+      const memory = line.split(',')[4].replace(/"/g, '')
+      totalMemory += parseInt(memory)
+    }
+  })
+  lastMemory = totalMemory * 1000 * 1024
+  return (((totalMemory * 1000 * 1024) / os.totalmem()) * 100).toFixed(4) + '%'
+}
+
+export function getDirectories(source: string): {
+  folder: string
+  name: string
+}[] {
+  return fs
+    .readdirSync(source, { withFileTypes: true })
+    .filter((dirent) => dirent.isDirectory())
+    .map((dirent) => ({
+      folder: `${source}/${dirent.name}`,
+      name: dirent.name,
+    }))
+}
+
+export function getFiles(source: string): {
+  dir: string
+  file: string
+  stats: fs.Stats
+}[] {
+  return fs
+    .readdirSync(source, { withFileTypes: true })
+    .filter((file) => file.isFile())
+    .map((file) => ({
+      dir: source,
+      file: file.name,
+      stats: fs.statSync(pathLib.join(source, file.name)),
+    }))
 }

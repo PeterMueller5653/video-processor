@@ -18,42 +18,16 @@ import {
   dateToString,
   dateToTimeString,
   formatDate,
+  getDirectories,
+  getFiles,
+  getMemoryUsageHumanForProcess,
+  getMemoryUsageInPercentForProcess,
   getTimeInSeconds,
   humanFileSize,
   loading,
   millisecondsToTime,
   progressBar
 } from './utils.js'
-
-const getDirectories = (
-  source: string
-): {
-  folder: string
-  name: string
-}[] =>
-  fs
-    .readdirSync(source, { withFileTypes: true })
-    .filter((dirent) => dirent.isDirectory())
-    .map((dirent) => ({
-      folder: `${source}/${dirent.name}`,
-      name: dirent.name,
-    }))
-
-const getFiles = (
-  source: string
-): {
-  dir: string
-  file: string
-  stats: fs.Stats
-}[] =>
-  fs
-    .readdirSync(source, { withFileTypes: true })
-    .filter((file) => file.isFile())
-    .map((file) => ({
-      dir: source,
-      file: file.name,
-      stats: fs.statSync(pathLib.join(source, file.name)),
-    }))
 
 const Processing = (
   {
@@ -151,6 +125,7 @@ async function run(
       prefixes.push(
         Skipped({ position: index + 1, total: folders.length }, name)
       )
+      logUpdate(prefixes.join('\n'))
       continue
     }
 
@@ -188,8 +163,16 @@ async function run(
 
       let progress = 0
       let ln = ''
+      let memoryPercent = '0.0000%'
+      let memoryHuman = '0.00 B'
       const interval = setInterval(() => {
         logUpdate(loading(`${currentLine}\n${ln}\n${progressBar(progress)}`))
+        getMemoryUsageInPercentForProcess('ffmpeg').then((mem) => {
+          memoryPercent = mem
+        })
+        getMemoryUsageHumanForProcess('ffmpeg').then((mem) => {
+          memoryHuman = mem
+        })
       }, 150)
       log(`Processing ${path} => ${newPath}`)
       await new Promise((res) =>
@@ -198,6 +181,9 @@ async function run(
           .addOptions('-cpu-used', '5')
           .audioCodec('aac')
           .videoCodec('h264_nvenc')
+          .on('start', (commandLine) => {
+            log(`Started: ${commandLine}`)
+          })
           .on('error', (error) => {
             clearInterval(interval)
             mainPrefix += `${currentLine}\n${chalk.redBright(
@@ -209,14 +195,14 @@ async function run(
           })
           .on(
             'progress',
-            ({ currentFps, frames, targetSize, timemark, percent }) => {
+            async ({ currentFps, frames, targetSize, timemark, percent }) => {
               const eta = millisecondsToTime(
                 calculateEta(startTime, clamp(percent, 0, 100))
               )
               const duration = millisecondsToTime(Date.now() - startTime)
               ln = `[ ] FPS: ${currentFps}\n[ ] Frames: ${frames}\n[ ] Target Size: ${humanFileSize(
                 targetSize * 1024
-              )}\n[ ] Timemark: ${timemark}\n[ ] Duration: ${duration}\n[ ] ETA: ${eta}`
+              )}\n[ ] Timemark: ${timemark}\n[ ] Duration: ${duration}\n[ ] ETA: ${eta}\n[ ] Memory: ${memoryHuman} (${memoryPercent})`
 
               progress = percent
             }
@@ -252,7 +238,11 @@ async function run(
         created: Date
       }[]
     } = {}
-    for (let video of videos) {
+    for (let video of [...videos].sort(
+      (a, b) =>
+        formatDate(a.split('/').pop() ?? '').getTime() -
+        formatDate(b.split('/').pop() ?? '').getTime()
+    )) {
       const [date, rest] = video.split('/').pop()?.split('_') ?? []
       if (!date) continue
       if (!groupedVideos[date]) groupedVideos[date] = []
@@ -278,11 +268,16 @@ async function run(
 
       const [key, lastMergeGroup] = Object.entries(mergeGroups).pop() ?? []
       log(key, JSON.stringify(lastMergeGroup))
+      log(
+        (([...(lastMergeGroup ?? [])].pop()?.created.getTime() ?? 0) +
+          (duration + 15 * 60) * 1000,
+        created.getTime())
+      )
       if (
         key &&
         lastMergeGroup &&
         lastMergeGroup.length > 0 &&
-        lastMergeGroup.reverse()[0].created.getTime() +
+        ([...lastMergeGroup].pop()?.created.getTime() ?? 0) +
           (duration + 15 * 60) * 1000 >
           created.getTime()
       ) {
@@ -319,21 +314,41 @@ async function run(
 
         let progress = 0
         let ln = ''
+        let memoryPercent = '0.000%'
+        let memoryHuman = '0.00 B'
         const startTime = Date.now()
         const interval = setInterval(() => {
           logUpdate(loading(`${prefix}\n${ln}\n${progressBar(progress)}`))
+          getMemoryUsageHumanForProcess('ffmpeg').then((memory) => {
+            memoryHuman = memory
+          })
+          getMemoryUsageInPercentForProcess('ffmpeg').then((percent) => {
+            memoryPercent = percent
+          })
         }, 150)
-        const ff = ffmpeg()
-        for (let { video, duration } of videos) {
-          ff.input(video)
+        const mergeTxt = mergedPath.replace('.mp4', '.txt')
+        await new Promise((res) => fs.writeFile(mergeTxt, '', res))
+        for (let { video, duration } of [...videos].sort(
+          (a, b) => a.created.getTime() - b.created.getTime()
+        )) {
           totalDuration += duration
+          await new Promise((res) =>
+            fs.appendFile(mergeTxt, `file '${video.split('/').pop()}'\n`, res)
+          )
         }
         log(`Merging ${videos.length} videos => ${mergedPath}`)
         await new Promise((res, rej) =>
-          ff
-            .inputOptions('-safe 0')
-            .videoCodec('copy')
-            .audioCodec('copy')
+          ffmpeg(mergeTxt)
+            .addInputOptions('-f', 'concat', '-safe', '0')
+            .addOptions('-c', 'copy')
+            .on('start', (commandLine) => {
+              log(`Spawned Ffmpeg with command: ${commandLine}`)
+              log(
+                `Merge.txt content: ${fs
+                  .readFileSync(mergeTxt, 'utf-8')
+                  .toString()}`
+              )
+            })
             .on('error', (error) => {
               log(`Error: ${error}`)
               logUpdate(
@@ -351,7 +366,7 @@ async function run(
               const duration = millisecondsToTime(Date.now() - startTime)
               ln = `[ ] FPS: ${currentFps}\n[ ] Frames: ${frames}\n[ ] Size: ${humanFileSize(
                 targetSize * 1024
-              )}\n[ ] Timemark: ${timemark}\n[ ] Duration: ${duration}\n[ ] ETA: ${eta}`
+              )}\n[ ] Timemark: ${timemark}\n[ ] Duration: ${duration}\n[ ] ETA: ${eta}\n[ ] Memory: ${memoryHuman} (${memoryPercent})`
 
               progress = percent
             })
@@ -367,8 +382,10 @@ async function run(
               for (let video of videos) fs.unlinkSync(video.video)
               res(null)
             })
-            .concat(mergedPath)
+            .output(mergedPath)
+            .run()
         )
+        await new Promise((res) => fs.unlink(mergeTxt, res))
         clearInterval(interval)
       }
     }
@@ -397,11 +414,14 @@ async function run(
     )
 
     const fileList: string[] = merge
-      ? (Object.values(groupedVideos)
+      ? (Object.values(mergeGroups)
           .map((videos) => {
-            if (videos.length === 1) return videos[0].split('/').pop()
+            if (videos.length === 1) return videos[0].video.split('/').pop()
             else
-              return videos[0].split('/').pop()?.replace('.mp4', '.merged.mp4')
+              return videos[0].video
+                .split('/')
+                .pop()
+                ?.replace('.mp4', '.merged.mp4')
           })
           .filter((video) => video) as string[])
       : files.map(({ file }) => file)

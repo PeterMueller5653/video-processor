@@ -4,3 +4,7 @@ declare module 'json-to-markdown-table' {
     fields: string[]
   ): string
 }
+
+declare module 'gpu-info' {
+  export default function gpuInfo(): Promise<{ [key: string]: any }>
+}

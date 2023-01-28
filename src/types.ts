@@ -82,6 +82,39 @@ export type SearchVideoResponse = {
   scenes: Scene[]
 }
 
+export type Gallerie = {
+  files: File[]
+  id: string
+  folder: {
+    path: string
+  }
+  title: string
+}
+
+export type Image = {
+  files: File[]
+  galleries: Gallerie[]
+  id: string
+  o_counter: number
+  organized: boolean
+  paths: {
+    image: string
+    thumbnail: string
+  }
+  performers: Performer[]
+  rating?: number
+  studio?: Studio
+  tags: Tag[]
+  title: string
+}
+
+export type SearchImageResponse = {
+  count: number
+  duration: number
+  filesize: number
+  images: Image[]
+}
+
 export type Job = {
   id: string
   status: string

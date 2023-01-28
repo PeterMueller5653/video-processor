@@ -2,7 +2,12 @@ import chalk from 'chalk'
 import logUpdate from 'log-update'
 import fetch from 'node-fetch'
 import process from 'process'
-import { Job, JobQueueResponse, SearchVideoResponse } from './types.js'
+import {
+  Job,
+  JobQueueResponse,
+  SearchImageResponse,
+  SearchVideoResponse
+} from './types.js'
 import { loading } from './utils.js'
 
 export async function searchVideo(
@@ -157,6 +162,124 @@ export async function searchVideo(
     .then((res) => res.json())
     .then((json: any) => {
       return json?.data?.findScenes
+    })
+    .catch((err) => {
+      console.log(err)
+      return null
+    })
+}
+
+export async function searchImage(
+  filter: {
+    q?: string
+    page?: number
+    per_page?: number
+    sort?: string
+    direction?: string
+  } = {},
+  imageFilter = {}
+): Promise<SearchImageResponse | null> {
+  const parsedFilter = {
+    q: '',
+    page: 1,
+    per_page: 40,
+    sort: 'created_at',
+    direction: 'DESC',
+    ...filter,
+  }
+  return await fetch('http://localhost:9999/graphql', {
+    headers: {
+      accept: '*/*',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      operationName: 'FindImages',
+      variables: {
+        filter: parsedFilter,
+        image_filter: imageFilter,
+      },
+      query: `query FindImages($filter: FindFilterType, $image_filter: ImageFilterType, $image_ids: [Int!]) {
+            findImages(filter: $filter, image_filter: $image_filter, image_ids: $image_ids) {
+              count
+              megapixels
+              filesize
+              images {
+                ...SlimImageData
+                __typename
+            }
+            __typename
+        }
+      }
+        
+        fragment SlimImageData on Image {
+            id
+            title
+            rating
+            organized
+            o_counter
+            files {
+              ...ImageFileData
+              __typename
+          }
+          paths {
+              thumbnail
+              image
+              __typename
+          }
+          galleries {
+              id
+              title
+              files {
+                path
+                __typename
+            }
+            folder {
+                path
+                __typename
+            }
+            __typename
+        }
+          studio {
+              id
+              name
+              image_path
+              __typename
+          }
+          tags {
+              id
+              name
+              __typename
+          }
+          performers {
+              id
+              name
+              gender
+              favorite
+              image_path
+              __typename
+          }
+          __typename
+      }
+        
+        fragment ImageFileData on ImageFile {
+            id
+            path
+            size
+            width
+            height
+            fingerprints {
+              type
+              value
+              __typename
+          }
+          __typename
+      }`,
+    }),
+    method: 'POST',
+  })
+    .then((res) => res.json())
+    .then((json: any) => {
+      return json?.data?.findImages
     })
     .catch((err) => {
       console.log(err)

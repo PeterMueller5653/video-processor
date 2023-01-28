@@ -2,7 +2,16 @@ import chalk from 'chalk'
 import fs from 'fs'
 import logUpdate from 'log-update'
 import Client from 'ssh2-sftp-client'
-import { dateToTimeString, humanFileSize, loading, progressBar, secondsToTime } from './utils.js'
+import {
+  dateToTimeString,
+  getCpuUsageInPercent,
+  getMemoryUsageHuman,
+  getMemoryUsageInPercent,
+  humanFileSize,
+  loading,
+  progressBar,
+  secondsToTime
+} from './utils.js'
 
 const mainPath = '/media/pi/rec/rec'
 
@@ -11,24 +20,26 @@ const sftp = new Client()
 const main = async (debug: boolean = false) => {
   const log = (message: string) => {
     if (debug)
-      fs.appendFileSync('./debug.log', `[PULL] [${dateToTimeString(
-        new Date(),
-        'hh:mm:ss.SSS'
-      )}] ${message}\n`)
+      fs.appendFileSync(
+        './debug.log',
+        `[PULL] [${dateToTimeString(new Date(), 'hh:mm:ss.SSS')}] ${message}\n`
+      )
   }
 
   logUpdate(chalk.blue('Connecting to pi.hole...'))
-  await sftp.connect({
-    host: 'pi.hole',
-    port: 22,
-    username: 'pi',
-    password: 'raspberry',
-  }).catch((err) => {
-    log(`Error connecting to pi.hole: ${err}`)
-    logUpdate(chalk.red('Error connecting to pi.hole'))
-    logUpdate.done()
-    return
-  })
+  await sftp
+    .connect({
+      host: 'pi.hole',
+      port: 22,
+      username: 'pi',
+      password: 'raspberry',
+    })
+    .catch((err) => {
+      log(`Error connecting to pi.hole: ${err}`)
+      logUpdate(chalk.red('Error connecting to pi.hole'))
+      logUpdate.done()
+      return
+    })
 
   logUpdate(chalk.blue('Loading folders...'))
 
@@ -62,7 +73,9 @@ const main = async (debug: boolean = false) => {
       logUpdate.done()
       fs.mkdirSync(`./ts/${folder.name}`, { recursive: true })
       fs.writeFileSync(`./ts/${folder.name}/.skip`, '')
-      log(`Marked ${folder.name} to be skipped processing because it still has files being recorded`)
+      log(
+        `Marked ${folder.name} to be skipped processing because it still has files being recorded`
+      )
     }
 
     for (const file of filtered) {
@@ -128,6 +141,8 @@ const main = async (debug: boolean = false) => {
         }`
         const progress = progressBar((totalTransferred / total) * 100)
 
+        const cpuUsage = `[ ] CPU Usage: ${getCpuUsageInPercent()}`
+        const memoryUsage = `[ ] Memory Usage: ${getMemoryUsageHuman()} (${getMemoryUsageInPercent()})`
         const totalSize = `[ ] Total: ${humanFileSize(
           downloaded + totalTransferred
         )} / ${humanFileSize(totalFileSize)}`
@@ -150,7 +165,7 @@ const main = async (debug: boolean = false) => {
               `Downloading [${index}/${fileCount}] ${chalk.yellow(
                 `${fileFolder}/${fileName}`
               )}`
-            )}\n${size}\n${speed}\n${duration}\n${eta}\n${progress}\n${totalSize}\n${totalDuration}\n${totalEta}\n${totalProgress}`
+            )}\n${size}\n${speed}\n${duration}\n${eta}\n${progress}\n${cpuUsage}\n${memoryUsage}\n${totalSize}\n${totalDuration}\n${totalEta}\n${totalProgress}`
           )
         )
       }

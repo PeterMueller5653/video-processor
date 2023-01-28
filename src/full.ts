@@ -5,6 +5,7 @@ import logUpdate from 'log-update'
 import process from 'process'
 import check from './check.js'
 import processVideos from './index.js'
+import processInstagram from './instagram.js'
 import pull from './pull.js'
 import stats from './stats.js'
 
@@ -47,6 +48,10 @@ const main = async () => {
       chalk.whiteBright('    Page name used for url and folder name')
     )
     console.log(
+      chalk.yellow('  -i,   --instagram'),
+      chalk.whiteBright('  Add url and date to video posts')
+    )
+    console.log(
       chalk.yellow('  -d,   --debug'),
       chalk.whiteBright('    Save debug logs to file')
     )
@@ -78,6 +83,7 @@ const main = async () => {
     args.includes('-v') ||
     args.includes('--full') ||
     args.includes('-f')
+  const doInstagram = args.includes('--instagram') || args.includes('-i')
   const doDebug = args.includes('--debug') || args.includes('-d')
 
   const page = args.includes('--page')
@@ -118,6 +124,14 @@ const main = async () => {
     logUpdate('Processing videos')
     await processVideos(true, page, doDebug)
     logUpdate(chalk.greenBright('Finished processing videos'))
+    logUpdate.done()
+  }
+
+  if (doInstagram) {
+    if (!page) throw new Error('Page name is required for processing videos')
+    logUpdate('Processing instagram posts')
+    await processInstagram(false, page, doDebug)
+    logUpdate(chalk.greenBright('Finished processing instagram posts'))
     logUpdate.done()
   }
 
