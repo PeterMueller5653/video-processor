@@ -4,6 +4,7 @@ import fs from 'fs'
 import logUpdate from 'log-update'
 import process from 'process'
 import check from './check.js'
+import getFapello from './fapello.js'
 import processVideos from './index.js'
 import parseInstagram from './instagram.js'
 import pull from './pull.js'
@@ -36,10 +37,6 @@ const main = async () => {
       chalk.whiteBright('     Pull files, process videos, and generate stats')
     )
     console.log(
-      chalk.yellow('  -h,   --help'),
-      chalk.whiteBright('     Show this help')
-    )
-    console.log(
       chalk.yellow('  -v,   --version'),
       chalk.whiteBright('  Show version')
     )
@@ -52,8 +49,24 @@ const main = async () => {
       chalk.whiteBright('  Parse instagram posts')
     )
     console.log(
+      chalk.yellow('  -fa,   --fapello'),
+      chalk.whiteBright('     Get fapello links')
+    )
+    console.log(
+      chalk.yellow('  -co,   --count'),
+      chalk.whiteBright('     Number of posts to parse')
+    )
+    console.log(
+      chalk.yellow('  -o,   --output'),
+      chalk.whiteBright('    Output folder')
+    )
+    console.log(
       chalk.yellow('  -d,   --debug'),
       chalk.whiteBright('    Save debug logs to file')
+    )
+    console.log(
+      chalk.yellow('  -h,   --help'),
+      chalk.whiteBright('     Show this help')
     )
     process.exit(0)
   }
@@ -84,12 +97,25 @@ const main = async () => {
     args.includes('--full') ||
     args.includes('-f')
   const doInstagram = args.includes('--instagram') || args.includes('-i')
+  const doFapello = args.includes('--fapello') || args.includes('-fa')
   const doDebug = args.includes('--debug') || args.includes('-d')
 
   const page = args.includes('--page')
     ? args[args.indexOf('--page') + 1]
     : args.includes('-pg')
     ? args[args.indexOf('-pg') + 1]
+    : null
+
+  const count = args.includes('--count')
+    ? args[args.indexOf('--count') + 1]
+    : args.includes('-co')
+    ? args[args.indexOf('-co') + 1]
+    : null
+
+  const output = args.includes('--output')
+    ? args[args.indexOf('--output') + 1]
+    : args.includes('-o')
+    ? args[args.indexOf('-o') + 1]
     : null
 
   logUpdate.done()
@@ -133,6 +159,18 @@ const main = async () => {
     logUpdate('Parsing instagram posts')
     await parseInstagram(page, doDebug)
     logUpdate(chalk.greenBright('Finished parsing instagram posts'))
+    logUpdate.done()
+  }
+
+  if (doFapello) {
+    if (!page) throw new Error('Page name is required for fapello links')
+    logUpdate('Getting fapello links')
+    await getFapello({
+      username: page,
+      count: Number(count) ?? 1,
+      output: output,
+    })
+    logUpdate(chalk.greenBright('Finished getting fapello links'))
     logUpdate.done()
   }
 
