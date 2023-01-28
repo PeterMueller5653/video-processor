@@ -43,6 +43,18 @@ export type Tag = {
   name: string
 }
 
+export type FullTag = {
+  aliases: string[]
+  children: Tag[]
+  gallery_count: number
+  ignore_auto_tag: boolean
+  image_count: number
+  image_path: string
+  performer_count: number
+  scene_count: number
+  scene_marker_count: number
+} & Tag
+
 export type Scene = {
   id: string
   date?: string
@@ -50,7 +62,11 @@ export type Scene = {
   galleries: any[]
   interactive: boolean
   interactive_speed?: number
-  movies: any[]
+  movies: {
+    id: string
+    front_image_path?: string
+    name: string
+  }[]
   o_counter: number
   organized: boolean
   paths: {
@@ -82,18 +98,37 @@ export type SearchVideoResponse = {
   scenes: Scene[]
 }
 
-export type Gallerie = {
+export type FullGallery = {
+  cover: {
+    files: File[]
+    paths: {
+      thumbnail: string
+    }
+  }
+  date?: string
+  details: ''
+  image_count: number
+  organized: boolean
+  performers: Performer[]
+  rating?: number
+  scenes: Scene[]
+  studio?: Studio
+  tags: Tag[]
+  url: string
+} & Gallery
+
+export type Gallery = {
   files: File[]
-  id: string
   folder: {
     path: string
   }
+  id: string
   title: string
 }
 
 export type Image = {
   files: File[]
-  galleries: Gallerie[]
+  galleries: Gallery[]
   id: string
   o_counter: number
   organized: boolean
@@ -110,9 +145,41 @@ export type Image = {
 
 export type SearchImageResponse = {
   count: number
-  duration: number
   filesize: number
   images: Image[]
+}
+
+export type SearchGalleryResponse = {
+  count: number
+  galleries: FullGallery[]
+}
+
+export type SearchTagsResponse = {
+  count: number
+  tags: FullTag[]
+}
+
+export type Movie = {
+  aliases?: string[]
+  back_image_path?: string
+  checksum: string
+  date?: string
+  director?: string
+  duration: number
+  front_image_path?: string
+  id: string
+  name: string
+  rating?: number
+  scene_count: number
+  scenes: Scene[]
+  studio?: Studio
+  synopsis?: string
+  url?: string
+}
+
+export type SearchMoviesResponse = {
+  count: number
+  movies: Movie[]
 }
 
 export type Job = {

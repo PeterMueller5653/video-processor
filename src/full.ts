@@ -5,7 +5,7 @@ import logUpdate from 'log-update'
 import process from 'process'
 import check from './check.js'
 import processVideos from './index.js'
-import processInstagram from './instagram.js'
+import parseInstagram from './instagram.js'
 import pull from './pull.js'
 import stats from './stats.js'
 
@@ -49,7 +49,7 @@ const main = async () => {
     )
     console.log(
       chalk.yellow('  -i,   --instagram'),
-      chalk.whiteBright('  Add url and date to video posts')
+      chalk.whiteBright('  Parse instagram posts')
     )
     console.log(
       chalk.yellow('  -d,   --debug'),
@@ -128,10 +128,11 @@ const main = async () => {
   }
 
   if (doInstagram) {
-    if (!page) throw new Error('Page name is required for processing videos')
-    logUpdate('Processing instagram posts')
-    await processInstagram(false, page, doDebug)
-    logUpdate(chalk.greenBright('Finished processing instagram posts'))
+    if (!page)
+      throw new Error('Page name is required for parsing instagram posts')
+    logUpdate('Parsing instagram posts')
+    await parseInstagram(page, doDebug)
+    logUpdate(chalk.greenBright('Finished parsing instagram posts'))
     logUpdate.done()
   }
 
