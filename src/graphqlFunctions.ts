@@ -1,4 +1,5 @@
 import chalk from 'chalk'
+import fs from 'fs'
 import logUpdate from 'log-update'
 import fetch from 'node-fetch'
 import process from 'process'
@@ -14,7 +15,16 @@ import {
   SearchTagsResponse,
   SearchVideoResponse
 } from './types.js'
-import { loading } from './utils.js'
+import { dateToTimeString, loading } from './utils.js'
+
+const log = (...message: any[]) => {
+  fs.appendFileSync(
+    './debug.log',
+    `[GRAPHQL] [${dateToTimeString(new Date(), 'hh:mm:ss.SSS')}] ${message.join(
+      ' '
+    )}\n`
+  )
+}
 
 export async function searchVideo(
   filter: {
@@ -1071,17 +1081,20 @@ export async function jobQueue(): Promise<JobQueueResponse | null> {
   })
     .then((res) => res.json())
     .then((json: any) => {
-      return json?.data?.jobQueue
+      return json?.data?.jobQueue ?? []
     })
     .catch((err) => {
-      console.log(err)
+      log(err)
       return null
     })
 }
 
 export async function waitForJobs(prefix: string = '') {
-  let jobs = await jobQueue()
-  let runningJobs = jobs?.length ?? 0
+  let jobs = await jobQueue().catch((err) => {
+    log(err)
+    return null
+  })
+  let runningJobs = jobs?.length ?? 1
 
   const frameString = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
   let frameIndex = 0
@@ -1117,7 +1130,7 @@ export async function waitForJobs(prefix: string = '') {
         )} ${color(suffix)}`
       )
     })
-    return lines.join('')
+    return lines.join('\n')
   }
 
   const currentStatus = (jobs: Job[]): string => {
@@ -1125,7 +1138,7 @@ export async function waitForJobs(prefix: string = '') {
     const width = process.stdout.columns - 2
     const subTasksClamped = subTasks
       ?.map((line) => line.slice(0, width))
-      ?.join('')
+      ?.join('\n')
     return subTasks ? chalk.grey(`${subTasksClamped}`) : ''
   }
 
@@ -1138,20 +1151,22 @@ export async function waitForJobs(prefix: string = '') {
       if (jobs)
         logUpdate(
           `${loading(
-            `${prefix} ${Processing('Scanning and tagging new scenes.')}`,
+            `${prefix}\n${Processing('Scanning and tagging new scenes.')}`,
             frameIndex
-          )}
-          ${buildProgressLines(jobs)}${currentStatus(jobs)}`
+          )}\n${buildProgressLines(jobs)}${currentStatus(jobs)}`
         )
       await new Promise((res) => setTimeout(res, 150))
     }
 
-    jobs = await jobQueue()
-    runningJobs = jobs?.length ?? 0
+    await jobQueue()
+      .then((res) => {
+        jobs = res
+      })
+      .catch(log)
+    runningJobs = jobs?.length ?? 1
   }
 
-  logUpdate(`${prefix}
-  ${chalk.greenBright('All jobs finished')}`)
+  logUpdate(`${prefix}\n${chalk.greenBright('All jobs finished')}`)
 }
 
 export async function searchGalleries(

@@ -2,22 +2,27 @@ import chalk from 'chalk'
 import fs from 'fs'
 import logUpdate from 'log-update'
 import {
-    addGalleryImages,
-    createGallery,
-    createMovie,
-    createTag,
-    editImage,
-    editMovie,
-    editScene,
-    editTag,
-    searchGalleries,
-    searchImage,
-    searchMovies,
-    searchPerformer,
-    searchTags,
-    searchVideo
+  addGalleryImages,
+  createGallery,
+  createMovie,
+  createTag,
+  editImage,
+  editMovie,
+  editScene,
+  editTag,
+  searchGalleries,
+  searchImage,
+  searchMovies,
+  searchPerformer,
+  searchTags,
+  searchVideo
 } from './graphqlFunctions.js'
-import { dateToString, dateToTimeString, getFiles } from './utils.js'
+import {
+  dateToString,
+  dateToTimeString,
+  formatDate,
+  getFiles
+} from './utils.js'
 
 const getPostData = (
   name: string
@@ -30,7 +35,14 @@ const getPostData = (
 } => {
   const regex = /(\d{4}-\d{2}-\d{2})_([^\s]+) - ([^\s]+) (\d+)_of_(\d+)/
   const match = name.match(regex)
-  if (!match) return { date: '', username: '', postId: '', index: 0, total: 0 }
+  if (!match)
+    return {
+      date: '1970-01-01',
+      username: name.split(' - ')[0],
+      postId: '',
+      index: 0,
+      total: 0,
+    }
   return {
     date: match[1],
     username: match[2],
@@ -57,13 +69,13 @@ async function run(page: string, debug: boolean = false) {
     .map((user) => getFiles(`./instagram/${user}`))
     .reduce((a, b) => a.concat(b), [])
 
-  for (const { file } of files) {
+  for (const f of files) {
+    const { file } = f
     const { date, username, postId, index, total } = getPostData(file)
 
-    const title = `${username} - ${dateToString(new Date(date)).replace(
-      / \d{2}:\d{2}:\d{2}/,
-      ''
-    )} ${index}/${total} - (${postId})`
+    const title = `${username} - ${dateToString(
+      formatDate(`${date}_00-00-00`)
+    ).replace(/ \d{2}:\d{2}:\d{2}/, '')} ${index}/${total} - (${postId})`
 
     const performerResponse = await searchPerformer(username, {}).catch(
       () => null
@@ -292,13 +304,31 @@ async function run(page: string, debug: boolean = false) {
         })
 
         if (addGalleryImagesResult)
-          log(`Added image ${image.id} to gallery ${galleryId}`)
-        else log(`Failed to add image ${image.id} to gallery ${galleryId}`)
+          log(
+            `[${files.indexOf(f) + 1}/${files.length}] Added image ${
+              image.id
+            } to gallery ${galleryId}`
+          )
+        else
+          log(
+            `[${files.indexOf(f) + 1}/${files.length}] Failed to add image ${
+              image.id
+            } to gallery ${galleryId}`
+          )
       }
 
       if (editResult && !(editResult as any).errors)
-        logUpdate(chalk.greenBright(`Updated ${file}`))
-      else logUpdate(chalk.redBright(`Failed to update ${file}`))
+        logUpdate(
+          chalk.greenBright(
+            `[${files.indexOf(f) + 1}/${files.length}] Updated ${file}`
+          )
+        )
+      else
+        logUpdate(
+          chalk.redBright(
+            `[${files.indexOf(f) + 1}/${files.length}] Failed to update ${file}`
+          )
+        )
 
       logUpdate.done()
     }

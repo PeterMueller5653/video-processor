@@ -270,7 +270,7 @@ async function run(
       log(key, JSON.stringify(lastMergeGroup))
       log(
         (([...(lastMergeGroup ?? [])].pop()?.created.getTime() ?? 0) +
-          (duration + 15 * 60) * 1000,
+          (duration + 25 * 60) * 1000,
         created.getTime())
       )
       if (
@@ -278,7 +278,7 @@ async function run(
         lastMergeGroup &&
         lastMergeGroup.length > 0 &&
         ([...lastMergeGroup].pop()?.created.getTime() ?? 0) +
-          (duration + 15 * 60) * 1000 >
+          (duration + 25 * 60) * 1000 >
           created.getTime()
       ) {
         mergeGroups[key].push({ video, duration, created })
@@ -297,7 +297,10 @@ async function run(
         (g) => mergeGroups[g].length > 1
       ).length
       for (let group in mergeGroups) {
-        const position = Object.keys(mergeGroups).indexOf(group) + 1
+        const position =
+          Object.keys(mergeGroups)
+            .filter((g) => mergeGroups[g].length > 1)
+            .indexOf(group) + 1
         const videos = mergeGroups[group]
 
         if (videos.length === 1) continue
@@ -400,12 +403,16 @@ async function run(
       )}`
     )
 
+    log(`Start scan and auto tag in ${newFolder}`)
+
     await new Promise((res) => setTimeout(res, 2000))
 
     await scanFolder(newFolder).catch(() => null)
     await autoTag(newFolder).catch(() => null)
 
     await waitForJobs(mainPrefix).catch(() => null)
+
+    log(`Done scan and auto tag in ${newFolder}`)
 
     logUpdate(
       `${mainPrefix}\n${chalk.greenBright('Done:')} ${chalk.whiteBright(
@@ -493,10 +500,7 @@ async function run(
     logUpdate(prefixes.join('\n'))
   }
 
-  console.log(
-    chalk.greenBright('Done:'),
-    chalk.whiteBright('All files processed')
-  )
+  logUpdate.done()
 
   return processedFiles
 }
