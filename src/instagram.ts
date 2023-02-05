@@ -140,6 +140,7 @@ async function run(page: string, debug: boolean = false) {
               }] Scene already organized for ${file}`
             )
           )
+        logUpdate.done()
         continue
       }
 
@@ -308,6 +309,7 @@ async function run(page: string, debug: boolean = false) {
               }] Image already organized for ${file}`
             )
           )
+        logUpdate.done()
         continue
       }
 
