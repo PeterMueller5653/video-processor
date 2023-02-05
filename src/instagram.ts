@@ -131,7 +131,17 @@ async function run(page: string, debug: boolean = false) {
       }
 
       const scene = sceneResult?.scenes[0]
-      if (!scene || scene.organized) continue
+      if (!scene || scene.organized) {
+        if (scene)
+          logUpdate(
+            chalk.yellowBright(
+              `[${files.indexOf(f) + 1}/${
+                files.length
+              }] Scene already organized for ${file}`
+            )
+          )
+        continue
+      }
 
       log(`Found scene for ${file} (${JSON.stringify(scene)})`)
 
@@ -218,8 +228,17 @@ async function run(page: string, debug: boolean = false) {
       }
 
       if (editResult && !(editResult as any).errors)
-        logUpdate(chalk.greenBright(`Updated ${file}`))
-      else logUpdate(chalk.redBright(`Failed to update ${file}`))
+        logUpdate(
+          chalk.greenBright(
+            `[${files.indexOf(f) + 1}/${files.length}] Updated ${file}`
+          )
+        )
+      else
+        logUpdate(
+          chalk.redBright(
+            `[${files.indexOf(f) + 1}/${files.length}] Failed to update ${file}`
+          )
+        )
 
       logUpdate.done()
     } else {
@@ -280,7 +299,17 @@ async function run(page: string, debug: boolean = false) {
 
       log(`Found image for ${file} (${JSON.stringify(image)})`)
 
-      if (!image || image.organized) continue
+      if (!image || image.organized) {
+        if (image)
+          logUpdate(
+            chalk.yellowBright(
+              `[${files.indexOf(f) + 1}/${
+                files.length
+              }] Image already organized for ${file}`
+            )
+          )
+        continue
+      }
 
       if (tagId) {
         const editTagResponse = await editTag(tagId, {
