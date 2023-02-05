@@ -65,6 +65,13 @@ async function run(page: string, debug: boolean = false) {
       )
   }
 
+  const stats = {
+    total: 0,
+    skipped: 0,
+    added: 0,
+    failed: 0,
+  }
+
   const files =
     page === '*'
       ? getDirectories('./instagram')
@@ -76,6 +83,7 @@ async function run(page: string, debug: boolean = false) {
           .reduce((a, b) => a.concat(b), [])
 
   for (const f of files) {
+    stats.total++
     const { file } = f
     const { date, username, postId, index, total } = getPostData(file)
 
@@ -132,7 +140,7 @@ async function run(page: string, debug: boolean = false) {
 
       const scene = sceneResult?.scenes[0]
       if (!scene || scene.organized) {
-        if (scene)
+        if (scene) {
           logUpdate(
             chalk.yellowBright(
               `[${files.indexOf(f) + 1}/${
@@ -140,6 +148,17 @@ async function run(page: string, debug: boolean = false) {
               }] Scene already organized for ${file}`
             )
           )
+          stats.skipped++
+        } else {
+          logUpdate(
+            chalk.redBright(
+              `[${files.indexOf(f) + 1}/${
+                files.length
+              }] No scene found for ${file}`
+            )
+          )
+          stats.failed++
+        }
         logUpdate.done()
         continue
       }
@@ -241,6 +260,7 @@ async function run(page: string, debug: boolean = false) {
           )
         )
 
+      stats.added++
       logUpdate.done()
     } else {
       let galleryId: string | undefined
@@ -290,9 +310,11 @@ async function run(page: string, debug: boolean = false) {
 
       if ((imageResult?.count ?? 0) === 0) {
         logUpdate(chalk.redBright(`No image found for ${file}`))
+        stats.failed++
         continue
       } else if ((imageResult?.count ?? 0) > 1) {
         logUpdate(chalk.redBright(`Multiple images found for ${file}`))
+        stats.skipped++
         continue
       }
 
@@ -301,7 +323,7 @@ async function run(page: string, debug: boolean = false) {
       log(`Found image for ${file} (${JSON.stringify(image)})`)
 
       if (!image || image.organized) {
-        if (image)
+        if (image) {
           logUpdate(
             chalk.yellowBright(
               `[${files.indexOf(f) + 1}/${
@@ -309,6 +331,17 @@ async function run(page: string, debug: boolean = false) {
               }] Image already organized for ${file}`
             )
           )
+          stats.skipped++
+        } else {
+          logUpdate(
+            chalk.redBright(
+              `[${files.indexOf(f) + 1}/${
+                files.length
+              }] Image not found for ${file}`
+            )
+          )
+          stats.failed++
+        }
         logUpdate.done()
         continue
       }
@@ -369,9 +402,26 @@ async function run(page: string, debug: boolean = false) {
           )
         )
 
+      stats.added++
       logUpdate.done()
     }
   }
+
+  logUpdate(
+    [
+      chalk.greenBright(`Added: ${stats.added}`),
+      chalk.yellowBright(`Skipped: ${stats.skipped}`),
+      chalk.redBright(`Failed: ${stats.failed}`),
+    ].join('\n')
+  )
+  log(
+    [
+      `Added: ${stats.added}`,
+      `Skipped: ${stats.skipped}`,
+      `Failed: ${stats.failed}`,
+    ].join(' | ')
+  )
+  logUpdate.done()
 }
 
 export default run
