@@ -68,7 +68,7 @@ async function run(page: string, debug: boolean = false) {
   const files =
     page === '*'
       ? getDirectories('./instagram')
-          .map((user) => getFiles(`./instagram/${user}`))
+          .map(({ folder }) => getFiles(folder))
           .reduce((a, b) => a.concat(b), [])
       : page
           .split(',')
