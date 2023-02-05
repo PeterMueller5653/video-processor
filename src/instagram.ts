@@ -21,6 +21,7 @@ import {
   dateToString,
   dateToTimeString,
   formatDate,
+  getDirectories,
   getFiles
 } from './utils.js'
 
@@ -64,10 +65,15 @@ async function run(page: string, debug: boolean = false) {
       )
   }
 
-  const files = page
-    .split(',')
-    .map((user) => getFiles(`./instagram/${user}`))
-    .reduce((a, b) => a.concat(b), [])
+  const files =
+    page === '*'
+      ? getDirectories('./instagram')
+          .map((user) => getFiles(`./instagram/${user}`))
+          .reduce((a, b) => a.concat(b), [])
+      : page
+          .split(',')
+          .map((user) => getFiles(`./instagram/${user}`))
+          .reduce((a, b) => a.concat(b), [])
 
   for (const f of files) {
     const { file } = f
@@ -125,7 +131,7 @@ async function run(page: string, debug: boolean = false) {
       }
 
       const scene = sceneResult?.scenes[0]
-      if (!scene) continue
+      if (!scene || scene.organized) continue
 
       log(`Found scene for ${file} (${JSON.stringify(scene)})`)
 
@@ -184,6 +190,7 @@ async function run(page: string, debug: boolean = false) {
         studio_id: scene.studio?.id,
         performer_ids: performer ? [performer.id] : [],
         tag_ids: tagId ? [tagId, ...scene.tags.map((tag) => tag.id)] : [],
+        organized: true,
         movies: movieId
           ? [
               { movie_id: movieId },
@@ -273,7 +280,7 @@ async function run(page: string, debug: boolean = false) {
 
       log(`Found image for ${file} (${JSON.stringify(image)})`)
 
-      if (!image) continue
+      if (!image || image.organized) continue
 
       if (tagId) {
         const editTagResponse = await editTag(tagId, {
@@ -290,6 +297,7 @@ async function run(page: string, debug: boolean = false) {
 
       const editResult = await editImage(image.id, {
         title: title,
+        organized: true,
         performer_ids: performer ? [performer.id] : [],
         studio_id: image.studio?.id ?? '104',
         tag_ids: tagId ? [tagId, ...image.tags.map((tag) => tag.id)] : [],

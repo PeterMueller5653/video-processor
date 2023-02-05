@@ -419,6 +419,7 @@ export async function editScene(
     studio_id,
     performer_ids,
     tag_ids,
+    organized,
     movies,
     title,
     url,
@@ -428,6 +429,7 @@ export async function editScene(
     studio_id?: string
     performer_ids?: string[]
     tag_ids?: string[]
+    organized?: boolean
     movies?: {
       movie_id: string
     }[]
@@ -451,6 +453,7 @@ export async function editScene(
           studio_id: studio_id,
           performer_ids: performer_ids ?? [],
           tag_ids: tag_ids ?? [],
+          organized: organized,
           movies: movies ?? [],
           title: title ?? '',
           url: url ?? '',
@@ -872,12 +875,14 @@ export async function editImage(
     studio_id,
     performer_ids,
     tag_ids,
+    organized,
     rating,
     title,
   }: {
     studio_id?: string
     performer_ids?: string[]
     tag_ids?: string[]
+    organized?: boolean
     rating?: number
     title?: string
   }
@@ -895,6 +900,7 @@ export async function editImage(
           title: title ?? '',
           rating: rating,
           studio_id: studio_id,
+          organized: organized,
           performer_ids: performer_ids ?? [],
           tag_ids: tag_ids ?? [],
         },
