@@ -22,7 +22,10 @@ import {
   dateToTimeString,
   formatDate,
   getDirectories,
-  getFiles
+  getFiles,
+  loading,
+  millisecondsToTime,
+  progressBar
 } from './utils.js'
 
 const getPostData = (
@@ -66,6 +69,7 @@ async function run(page: string, debug: boolean = false) {
   }
 
   const stats = {
+    startTime: Date.now(),
     total: 0,
     skipped: 0,
     added: 0,
@@ -82,14 +86,46 @@ async function run(page: string, debug: boolean = false) {
           .map((user) => getFiles(`./instagram/${user}`))
           .reduce((a, b) => a.concat(b), [])
 
+  let currentLine = (
+    stats: {
+      startTime: number
+      total: number
+      skipped: number
+      added: number
+      failed: number
+    },
+    status: string
+  ) => ''
   for (const f of files) {
-    stats.total++
     const { file } = f
     const { date, username, postId, index, total } = getPostData(file)
 
     const title = `${username} - ${dateToString(
       formatDate(`${date}_00-00-00`)
     ).replace(/ \d{2}:\d{2}:\d{2}/, '')} ${index}/${total} - (${postId})`
+
+    stats.total++
+
+    const fileIndex = files.indexOf(f)
+
+    currentLine = (stats, status) => {
+      const millisecondsLeft = Math.round(
+        (Date.now() - stats.startTime) *
+          ((files.length - fileIndex) / (fileIndex + 1))
+      )
+      return [
+        loading(progressBar((fileIndex + 1) / files.length)),
+        `${chalk.greenBright(
+          `[${fileIndex + 1}/${files.length}] ${stats.added} added`
+        )}, ${chalk.yellowBright(
+          `${stats.skipped} skipped`
+        )}, ${chalk.redBright(`${stats.failed} failed`)}, ${chalk.cyanBright(
+          `${millisecondsToTime(millisecondsLeft)} left`
+        )}`,
+        chalk.blackBright(`${title}`),
+        status,
+      ].join('\n')
+    }
 
     const performerResponse = await searchPerformer(username, {}).catch(
       () => null
@@ -120,8 +156,10 @@ async function run(page: string, debug: boolean = false) {
       tagId = createTagResponse.id
     }
 
-    if (!tagId) logUpdate(chalk.redBright(`No tag found for ${file}`))
-    else logUpdate(chalk.greenBright(`Tag found for ${file}`))
+    if (!tagId)
+      logUpdate(currentLine(stats, chalk.redBright(`No tag found for ${file}`)))
+    else
+      logUpdate(currentLine(stats, chalk.greenBright(`Tag found for ${file}`)))
 
     if (file.endsWith('.mp4')) {
       log(`Searching ${file.replace('.mp4', '').replace(/ -/g, '')}`)
@@ -131,10 +169,17 @@ async function run(page: string, debug: boolean = false) {
       })
 
       if ((sceneResult?.count ?? 0) === 0) {
-        logUpdate(chalk.redBright(`No scene found for ${file}`))
+        logUpdate(
+          currentLine(stats, chalk.redBright(`No scene found for ${file}`))
+        )
         continue
       } else if ((sceneResult?.count ?? 0) > 1) {
-        logUpdate(chalk.redBright(`Multiple scenes found for ${file}`))
+        logUpdate(
+          currentLine(
+            stats,
+            chalk.redBright(`Multiple scenes found for ${file}`)
+          )
+        )
         continue
       }
 
@@ -142,24 +187,28 @@ async function run(page: string, debug: boolean = false) {
       if (!scene || scene.organized) {
         if (scene) {
           logUpdate(
-            chalk.yellowBright(
-              `[${files.indexOf(f) + 1}/${
-                files.length
-              }] Scene already organized for ${file}`
+            currentLine(
+              stats,
+              chalk.yellowBright(
+                `[${fileIndex + 1}/${
+                  files.length
+                }] Scene already organized for ${file}`
+              )
             )
           )
           stats.skipped++
         } else {
           logUpdate(
-            chalk.redBright(
-              `[${files.indexOf(f) + 1}/${
-                files.length
-              }] No scene found for ${file}`
+            currentLine(
+              stats,
+              chalk.redBright(
+                `[${fileIndex + 1}/${files.length}] No scene found for ${file}`
+              )
             )
           )
           stats.failed++
         }
-        logUpdate.done()
+
         continue
       }
 
@@ -195,8 +244,14 @@ async function run(page: string, debug: boolean = false) {
           movie = createMovieResponse
           movieId = movie?.id
 
-          if (!movieId) logUpdate(chalk.redBright(`No movie found for ${file}`))
-          else logUpdate(chalk.greenBright(`Movie found for ${file}`))
+          if (!movieId)
+            logUpdate(
+              currentLine(stats, chalk.redBright(`No movie found for ${file}`))
+            )
+          else
+            logUpdate(
+              currentLine(stats, chalk.greenBright(`Movie found for ${file}`))
+            )
         }
       }
 
@@ -249,19 +304,24 @@ async function run(page: string, debug: boolean = false) {
 
       if (editResult && !(editResult as any).errors)
         logUpdate(
-          chalk.greenBright(
-            `[${files.indexOf(f) + 1}/${files.length}] Updated ${file}`
+          currentLine(
+            stats,
+            chalk.greenBright(
+              `[${fileIndex + 1}/${files.length}] Updated ${file}`
+            )
           )
         )
       else
         logUpdate(
-          chalk.redBright(
-            `[${files.indexOf(f) + 1}/${files.length}] Failed to update ${file}`
+          currentLine(
+            stats,
+            chalk.redBright(
+              `[${fileIndex + 1}/${files.length}] Failed to update ${file}`
+            )
           )
         )
 
       stats.added++
-      logUpdate.done()
     } else {
       let galleryId: string | undefined
       if (total > 1) {
@@ -278,7 +338,9 @@ async function run(page: string, debug: boolean = false) {
         galleryId = gallerySearchResult?.galleries?.[0]?.id
 
         if (gallerySearchResult?.count === 0) {
-          logUpdate(chalk.redBright(`No gallery found for ${file}`))
+          logUpdate(
+            currentLine(stats, chalk.redBright(`No gallery found for ${file}`))
+          )
 
           const result = await createGallery({
             title: `${username} - ${postId}`,
@@ -292,13 +354,28 @@ async function run(page: string, debug: boolean = false) {
           log(`Create Gallery Result ${JSON.stringify(result)}`)
 
           if (result)
-            logUpdate(chalk.greenBright(`Created gallery ${result?.id}`))
+            logUpdate(
+              currentLine(
+                stats,
+                chalk.greenBright(`Created gallery ${result?.id}`)
+              )
+            )
           else
-            logUpdate(chalk.redBright(`Failed to create gallery for ${postId}`))
+            logUpdate(
+              currentLine(
+                stats,
+                chalk.redBright(`Failed to create gallery for ${postId}`)
+              )
+            )
 
           galleryId = result?.id
         } else if ((gallerySearchResult?.count ?? 0) > 1) {
-          logUpdate(chalk.redBright(`Multiple galleries found for ${file}`))
+          logUpdate(
+            currentLine(
+              stats,
+              chalk.redBright(`Multiple galleries found for ${file}`)
+            )
+          )
         }
       }
 
@@ -309,11 +386,18 @@ async function run(page: string, debug: boolean = false) {
       })
 
       if ((imageResult?.count ?? 0) === 0) {
-        logUpdate(chalk.redBright(`No image found for ${file}`))
+        logUpdate(
+          currentLine(stats, chalk.redBright(`No image found for ${file}`))
+        )
         stats.failed++
         continue
       } else if ((imageResult?.count ?? 0) > 1) {
-        logUpdate(chalk.redBright(`Multiple images found for ${file}`))
+        logUpdate(
+          currentLine(
+            stats,
+            chalk.redBright(`Multiple images found for ${file}`)
+          )
+        )
         stats.skipped++
         continue
       }
@@ -325,24 +409,28 @@ async function run(page: string, debug: boolean = false) {
       if (!image || image.organized) {
         if (image) {
           logUpdate(
-            chalk.yellowBright(
-              `[${files.indexOf(f) + 1}/${
-                files.length
-              }] Image already organized for ${file}`
+            currentLine(
+              stats,
+              chalk.yellowBright(
+                `[${fileIndex + 1}/${
+                  files.length
+                }] Image already organized for ${file}`
+              )
             )
           )
           stats.skipped++
         } else {
           logUpdate(
-            chalk.redBright(
-              `[${files.indexOf(f) + 1}/${
-                files.length
-              }] Image not found for ${file}`
+            currentLine(
+              stats,
+              chalk.redBright(
+                `[${fileIndex + 1}/${files.length}] Image not found for ${file}`
+              )
             )
           )
           stats.failed++
         }
-        logUpdate.done()
+
         continue
       }
 
@@ -377,13 +465,13 @@ async function run(page: string, debug: boolean = false) {
 
         if (addGalleryImagesResult)
           log(
-            `[${files.indexOf(f) + 1}/${files.length}] Added image ${
+            `[${fileIndex + 1}/${files.length}] Added image ${
               image.id
             } to gallery ${galleryId}`
           )
         else
           log(
-            `[${files.indexOf(f) + 1}/${files.length}] Failed to add image ${
+            `[${fileIndex + 1}/${files.length}] Failed to add image ${
               image.id
             } to gallery ${galleryId}`
           )
@@ -391,19 +479,24 @@ async function run(page: string, debug: boolean = false) {
 
       if (editResult && !(editResult as any).errors)
         logUpdate(
-          chalk.greenBright(
-            `[${files.indexOf(f) + 1}/${files.length}] Updated ${file}`
+          currentLine(
+            stats,
+            chalk.greenBright(
+              `[${fileIndex + 1}/${files.length}] Updated ${file}`
+            )
           )
         )
       else
         logUpdate(
-          chalk.redBright(
-            `[${files.indexOf(f) + 1}/${files.length}] Failed to update ${file}`
+          currentLine(
+            stats,
+            chalk.redBright(
+              `[${fileIndex + 1}/${files.length}] Failed to update ${file}`
+            )
           )
         )
 
       stats.added++
-      logUpdate.done()
     }
   }
 
@@ -421,7 +514,6 @@ async function run(page: string, debug: boolean = false) {
       `Failed: ${stats.failed}`,
     ].join(' | ')
   )
-  logUpdate.done()
 }
 
 export default run

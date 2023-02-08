@@ -227,10 +227,6 @@ async function run(
       clearInterval(interval)
     }
 
-    const groupedVideos: {
-      [key: string]: string[]
-    } = {}
-
     const mergeGroups: {
       [key: string]: {
         video: string
@@ -245,8 +241,6 @@ async function run(
     )) {
       const [date, rest] = video.split('/').pop()?.split('_') ?? []
       if (!date) continue
-      if (!groupedVideos[date]) groupedVideos[date] = []
-      groupedVideos[date].push(video)
 
       const duration = await new Promise<number>((res) => {
         ffmpeg.ffprobe(video, (err, metadata) => {
@@ -258,9 +252,12 @@ async function run(
       log(
         `Duration: ${duration} Created: ${created.toISOString()} End: ${new Date(
           created.getTime() + duration * 1000
+        ).toISOString()} End + 25: ${new Date(
+          created.getTime() + (duration + 25 * 60) * 1000
         ).toISOString()}`
       )
       log(
+        'Raw Times Current:',
         duration * 1000,
         created.getTime(),
         duration * 1000 + created.getTime()
@@ -269,9 +266,12 @@ async function run(
       const [key, lastMergeGroup] = Object.entries(mergeGroups).pop() ?? []
       log(key, JSON.stringify(lastMergeGroup))
       log(
-        (([...(lastMergeGroup ?? [])].pop()?.created.getTime() ?? 0) +
-          (duration + 25 * 60) * 1000,
-        created.getTime())
+        'End Last (+25) -> Start Current:',
+        new Date(
+          ([...(lastMergeGroup ?? [])].pop()?.created.getTime() ?? 0) +
+            (duration + 25 * 60) * 1000
+        ).toISOString(),
+        created.toISOString()
       )
       if (
         key &&
