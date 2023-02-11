@@ -1,3 +1,4 @@
+import * as asciichart from 'asciichart'
 import csv from 'csvtojson'
 import fs from 'fs'
 // @ts-ignore
@@ -5,7 +6,12 @@ import jsonToMarkdownTable from 'json-to-markdown-table'
 import { Parser as Json2csvParser } from 'json2csv'
 import logUpdate from 'log-update'
 import { searchVideo } from './graphqlFunctions.js'
-import { humanFileSize, secondsToTime } from './utils.js'
+import {
+  dateToTimeString,
+  getWeekStartDate,
+  humanFileSize,
+  secondsToTime
+} from './utils.js'
 
 const filePath = './stats/stats.csv'
 
@@ -86,7 +92,7 @@ const main = async () => {
       if (!scene.date) return false
       const sceneDate = parseDate(scene.date)
       const diff = Math.abs(Number(latestDate) - Number(sceneDate))
-      return diff < 1000 * 60 * 60 * 24 * 14
+      return diff < 1000 * 60 * 60 * 24 * 27
     })
     .forEach((scene) => {
       const date = scene.date as string
@@ -165,7 +171,94 @@ const main = async () => {
 
   const json = await appendDataToCSVFile(csvData)
 
+  await buildGraph(dateGroups)
   console.table(json.slice(-10))
+  logUpdate.done()
+}
+
+const buildGraph = async (data: { [key: string]: { duration: number } }) => {
+  const terminalWidth = process.stdout.columns
+
+  const weeks: { [key: string]: { duration: number } }[] = []
+  Object.keys(data).forEach((date, index) => {
+    const weekIndex = Math.floor(index / 7)
+    if (!weeks[weekIndex]) weeks[weekIndex] = {}
+    weeks[weekIndex][date] = data[date]
+  })
+  const series = weeks.map((week) =>
+    Object.values(week)
+      .map((x) => [x.duration, x.duration, x.duration, x.duration, x.duration])
+      .flat()
+  )
+  const series2 = Object.values(data)
+    .map((obj) => [
+      obj.duration,
+      obj.duration,
+      obj.duration,
+      obj.duration,
+      obj.duration,
+    ])
+    .flat()
+  const maxLenTime = Math.max(
+    ...series.map((x) =>
+      Math.max(...x.map((x) => secondsToTime(x, true).length))
+    )
+  )
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  const daysStr = `${' '.repeat(maxLenTime + 5)}${days
+    .map((x) => x.padEnd(5))
+    .join('')}`
+
+  const daysStr2 = `${' '.repeat(maxLenTime + 5)}${Array(weeks.length)
+    .fill(days)
+    .flat()
+    .map((x) => x.padEnd(5))
+    .join('')}`
+
+  const useFull = daysStr2.length <= terminalWidth
+  const graph = asciichart.plot(useFull ? series2 : [...series].reverse(), {
+    height: 6,
+    colors: [
+      asciichart.blue,
+      asciichart.green,
+      asciichart.yellow,
+      asciichart.red,
+    ],
+    format: (x: number) => {
+      const time = secondsToTime(x, true)
+      return ' '.repeat(maxLenTime - time.length) + time
+    },
+  })
+  let description = ''
+  if (!useFull) {
+    const colors = [
+      asciichart.blue,
+      asciichart.green,
+      asciichart.yellow,
+      asciichart.red,
+    ]
+    const descriptors: string[] = []
+    weeks.forEach((week, index) => {
+      const dateString = Object.keys(week)[0]
+      const date = parseDate(dateString)
+      const startDate = dateToTimeString(
+        getWeekStartDate(date),
+        'ddd dd MMM yyyy'
+      )
+      descriptors.push(`${colors[index]}${startDate}${asciichart.reset}`)
+    })
+    description = descriptors.join(':sep:')
+    if (
+      description.replace(/\[[0-9]{0,}m/g, '').replace(/:sep:/g, ' '.repeat(3))
+        .length > terminalWidth
+    )
+      description = description.replace(/:sep:/g, '\n')
+    else description = description.replace(/:sep:/g, ' '.repeat(3))
+  }
+  const graphStr = `${graph}\n${
+    useFull ? daysStr2 : daysStr
+  }\n\n${description}\n`
+  logUpdate(graphStr)
   logUpdate.done()
 }
 

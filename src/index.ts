@@ -250,6 +250,7 @@ async function run(
       })
       const created = formatDate(`${date}_${rest}`)
       log(
+        date,
         `Duration: ${duration} Created: ${created.toISOString()} End: ${new Date(
           created.getTime() + duration * 1000
         ).toISOString()} End + 25: ${new Date(
@@ -257,6 +258,7 @@ async function run(
         ).toISOString()}`
       )
       log(
+        date,
         'Raw Times Current:',
         duration * 1000,
         created.getTime(),
@@ -264,31 +266,31 @@ async function run(
       )
 
       const [key, lastMergeGroup] = Object.entries(mergeGroups).pop() ?? []
-      log(key, JSON.stringify(lastMergeGroup))
+      const lastEndTime25 = new Date(
+        ([...(lastMergeGroup ?? [])].pop()?.created.getTime() ?? 0) +
+          (duration + 25 * 60) * 1000
+      )
+      log(date, key, JSON.stringify(lastMergeGroup))
       log(
+        date,
         'End Last (+25) -> Start Current:',
-        new Date(
-          ([...(lastMergeGroup ?? [])].pop()?.created.getTime() ?? 0) +
-            (duration + 25 * 60) * 1000
-        ).toISOString(),
+        lastEndTime25.toISOString(),
         created.toISOString()
       )
       if (
         key &&
         lastMergeGroup &&
         lastMergeGroup.length > 0 &&
-        ([...lastMergeGroup].pop()?.created.getTime() ?? 0) +
-          (duration + 25 * 60) * 1000 >
-          created.getTime()
+        lastEndTime25.getTime() > created.getTime()
       ) {
         mergeGroups[key].push({ video, duration, created })
-        log(`Added ${video} to ${key}`)
+        log(date, `Added ${video} to ${key}`)
       } else {
         const newKey = `${created.toISOString()}_${Math.random()
           .toString(36)
           .substring(2, 15)}`
         mergeGroups[newKey] = [{ video, duration, created }]
-        log(`Created new group ${newKey} for ${video}`)
+        log(date, `Created new group ${newKey} for ${video}`)
       }
     }
 

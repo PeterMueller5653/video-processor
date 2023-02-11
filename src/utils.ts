@@ -58,14 +58,42 @@ export function dateToTimeString(date: Date, format?: string): string {
       : date.getMilliseconds() > 9
       ? `0${date.getMilliseconds()}`
       : `00${date.getMilliseconds()}`
+  const day = date.getDate()
+  const month = date.getMonth() + 1
+  const year = date.getFullYear()
+
+  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  const monthNames = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ]
 
   const timeFormat = format || 'hh:mm:ss'
 
+  const dayOfWeek = new Date(year, month - 1, day).getDay()
+
   return timeFormat
-    .replace('hh', hours)
-    .replace('mm', minutes)
-    .replace('ss', seconds)
-    .replace('SSS', milliseconds)
+    .replace(/hh/g, hours)
+    .replace(/mm/g, minutes)
+    .replace(/ss/g, seconds)
+    .replace(/SSS/g, milliseconds)
+    .replace(/MMM/g, monthNames[month - 1])
+    .replace(/MM/g, month.toString().padStart(2, '0'))
+    .replace(/M/g, month.toString())
+    .replace(/ddd/g, dayNames[dayOfWeek - 1])
+    .replace(/dd/g, day.toString().padStart(2, '0'))
+    .replace(/d/g, day.toString())
+    .replace(/yyyy/g, year.toString())
 }
 
 export function formatDate(string: string): Date {
@@ -98,13 +126,34 @@ export function millisecondsToTime(milliseconds: number): string {
   return `${hours}h ${minutes % 60}m ${seconds % 60}s`
 }
 
-export function secondsToTime(seconds: number): string {
+export function secondsToTime(seconds: number, fixed: boolean = false): string {
   const days = Math.floor(seconds / (3600 * 24))
   const hours = Math.floor(seconds / 3600) % 24
   const minutes = Math.floor(seconds / 60) % 60
   const secondsLeft = Math.floor(seconds % 60)
 
+  if (fixed)
+    return `${(hours + days * 24).toString().padStart(2, '0')}:${minutes
+      .toString()
+      .padStart(2, '0')}:${secondsLeft.toString().padStart(2, '0')}`
+
   return `${days}d ${hours}h ${minutes}m ${secondsLeft}s`
+}
+
+export function getWeekNumber(date: Date): number {
+  const d = new Date(+date)
+  d.setHours(0, 0, 0)
+  d.setDate(d.getDate() + 4 - (d.getDay() || 7))
+  return Math.ceil(
+    ((d.getTime() - new Date(d.getFullYear(), 0, 1).getTime()) / 8.64e7 + 1) / 7
+  )
+}
+
+export function getWeekStartDate(date: Date): Date {
+  const d = new Date(+date)
+  d.setHours(0, 0, 0)
+  d.setDate(d.getDate() + 7 - (d.getDay() || 7))
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() - 6)
 }
 
 export function humanFileSize(size: number): string {
