@@ -62,7 +62,7 @@ export function dateToTimeString(date: Date, format?: string): string {
   const month = date.getMonth() + 1
   const year = date.getFullYear()
 
-  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   const monthNames = [
     'Jan',
     'Feb',
@@ -90,7 +90,7 @@ export function dateToTimeString(date: Date, format?: string): string {
     .replace(/MMM/g, monthNames[month - 1])
     .replace(/MM/g, month.toString().padStart(2, '0'))
     .replace(/M/g, month.toString())
-    .replace(/ddd/g, dayNames[dayOfWeek - 1])
+    .replace(/ddd/g, dayNames[dayOfWeek])
     .replace(/dd/g, day.toString().padStart(2, '0'))
     .replace(/d/g, day.toString())
     .replace(/yyyy/g, year.toString())

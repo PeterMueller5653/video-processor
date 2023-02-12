@@ -34,7 +34,14 @@ export async function searchVideo(
     sort?: string
     direction?: string
   } = {},
-  sceneFilter = {}
+  sceneFilter: {
+    [key: string]: any
+    studios?: {
+      depth?: number
+      modifier?: string
+      value?: string[]
+    }
+  } = {}
 ): Promise<SearchVideoResponse | null> {
   const parsedFilter = {
     q: '',

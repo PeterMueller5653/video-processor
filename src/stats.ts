@@ -1,4 +1,5 @@
 import * as asciichart from 'asciichart'
+import chalk from 'chalk'
 import csv from 'csvtojson'
 import fs from 'fs'
 // @ts-ignore
@@ -6,12 +7,7 @@ import jsonToMarkdownTable from 'json-to-markdown-table'
 import { Parser as Json2csvParser } from 'json2csv'
 import logUpdate from 'log-update'
 import { searchVideo } from './graphqlFunctions.js'
-import {
-  dateToTimeString,
-  getWeekStartDate,
-  humanFileSize,
-  secondsToTime
-} from './utils.js'
+import { dateToTimeString, humanFileSize, secondsToTime } from './utils.js'
 
 const filePath = './stats/stats.csv'
 
@@ -77,11 +73,30 @@ const main = async () => {
     }
   } = {}
 
-  const sceneResult = await searchVideo({
-    sort: 'date',
-    direction: 'DESC',
-    per_page: 1000,
-  })
+  const performers: {
+    [key: string]: {
+      [key: string]: {
+        size: number
+        duration: number
+        count: number
+      }
+    }
+  } = {}
+
+  const sceneResult = await searchVideo(
+    {
+      sort: 'date',
+      direction: 'DESC',
+      per_page: 1000,
+    },
+    {
+      studios: {
+        depth: 0,
+        modifier: 'INCLUDES',
+        value: ['2'],
+      },
+    }
+  )
 
   if (!sceneResult) return
 
@@ -92,7 +107,7 @@ const main = async () => {
       if (!scene.date) return false
       const sceneDate = parseDate(scene.date)
       const diff = Math.abs(Number(latestDate) - Number(sceneDate))
-      return diff < 1000 * 60 * 60 * 24 * 27
+      return diff < 1000 * 60 * 60 * 24 * (3 * 7 - 1)
     })
     .forEach((scene) => {
       const date = scene.date as string
@@ -108,6 +123,20 @@ const main = async () => {
       dateGroups[date].files.push(...scene.files)
       dateGroups[date].duration += scene.files[0].duration
       dateGroups[date].count++
+
+      scene.performers.forEach((performer) => {
+        if (!performers![performer.name]) performers![performer.name] = {}
+        if (!performers![performer.name][date]) {
+          performers![performer.name][date] = {
+            size: 0,
+            duration: 0,
+            count: 0,
+          }
+        }
+        performers![performer.name]![date].size += scene.files[0].size
+        performers![performer.name]![date].duration += scene.files[0].duration
+        performers![performer.name]![date].count++
+      })
     })
 
   Object.keys(dateGroups).forEach((date) => {
@@ -171,12 +200,32 @@ const main = async () => {
 
   const json = await appendDataToCSVFile(csvData)
 
+  logUpdate.done()
+  const terminalWidth = process.stdout.columns
+  for (const [performer, performerData] of Object.entries(performers)) {
+    const performerName = ` ${performer} `
+    const padding = Math.floor((terminalWidth - performerName.length) / 2)
+    const paddingString = chalk.yellowBright('─'.repeat(padding))
+    logUpdate(
+      `${paddingString}${chalk.redBright(performerName)}${paddingString}`
+    )
+    logUpdate.done()
+    await buildGraph(performerData, 5)
+  }
+  const title = ` Total Average `
+  const padding = Math.floor((terminalWidth - title.length) / 2)
+  const paddingString = chalk.yellowBright('─'.repeat(padding))
+  logUpdate(`${paddingString}${chalk.redBright(title)}${paddingString}`)
+  logUpdate.done()
   await buildGraph(dateGroups)
   console.table(json.slice(-10))
   logUpdate.done()
 }
 
-const buildGraph = async (data: { [key: string]: { duration: number } }) => {
+const buildGraph = async (
+  data: { [key: string]: { duration: number } },
+  size: number = 18
+) => {
   const terminalWidth = process.stdout.columns
 
   const weeks: { [key: string]: { duration: number } }[] = []
@@ -185,13 +234,35 @@ const buildGraph = async (data: { [key: string]: { duration: number } }) => {
     if (!weeks[weekIndex]) weeks[weekIndex] = {}
     weeks[weekIndex][date] = data[date]
   })
-  const series = weeks.map((week) =>
-    Object.values(week)
-      .map((x) => [x.duration, x.duration, x.duration, x.duration, x.duration])
-      .flat()
-  )
+  const series = weeks
+    .sort((a, b) => {
+      const aDate = Object.keys(a)[0]
+      const bDate = Object.keys(b)[0]
+      return Number(parseDate(aDate)) - Number(parseDate(bDate))
+    })
+    .map((week) =>
+      Object.values(week)
+        .map((x) => [
+          x.duration,
+          x.duration,
+          x.duration,
+          x.duration,
+          x.duration,
+          x.duration,
+          x.duration,
+          x.duration,
+          x.duration,
+          x.duration,
+        ])
+        .flat()
+    )
   const series2 = Object.values(data)
     .map((obj) => [
+      obj.duration,
+      obj.duration,
+      obj.duration,
+      obj.duration,
+      obj.duration,
       obj.duration,
       obj.duration,
       obj.duration,
@@ -205,19 +276,19 @@ const buildGraph = async (data: { [key: string]: { duration: number } }) => {
     )
   )
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-  const daysStr = `${' '.repeat(maxLenTime + 5)}${days
-    .map((x) => x.padEnd(5))
+  const daysStr = `${' '.repeat(maxLenTime + 10)}${days
+    .map((x) => x.padEnd(10))
     .join('')}`
 
-  const daysStr2 = `${' '.repeat(maxLenTime + 5)}${Array(weeks.length)
+  const daysStr2 = `${' '.repeat(maxLenTime + 10)}${Array(weeks.length)
     .fill(days)
     .flat()
-    .map((x) => x.padEnd(5))
+    .map((x) => x.padEnd(10))
     .join('')}`
 
   const useFull = daysStr2.length <= terminalWidth
-  const graph = asciichart.plot(useFull ? series2 : [...series].reverse(), {
-    height: 6,
+  const graph = asciichart.plot(useFull ? series2 : series, {
+    height: size,
     colors: [
       asciichart.blue,
       asciichart.green,
@@ -239,12 +310,11 @@ const buildGraph = async (data: { [key: string]: { duration: number } }) => {
     ]
     const descriptors: string[] = []
     weeks.forEach((week, index) => {
-      const dateString = Object.keys(week)[0]
+      const dateString = Object.keys(week).sort((a, b) => {
+        return Number(parseDate(a)) - Number(parseDate(b))
+      })[0]
       const date = parseDate(dateString)
-      const startDate = dateToTimeString(
-        getWeekStartDate(date),
-        'ddd dd MMM yyyy'
-      )
+      const startDate = dateToTimeString(date, 'ddd dd MMM yyyy')
       descriptors.push(`${colors[index]}${startDate}${asciichart.reset}`)
     })
     description = descriptors.join(':sep:')
