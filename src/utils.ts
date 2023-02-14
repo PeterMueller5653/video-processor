@@ -92,7 +92,7 @@ export function dateToTimeString(date: Date, format?: string): string {
     .replace(/M/g, month.toString())
     .replace(/ddd/g, dayNames[dayOfWeek])
     .replace(/dd/g, day.toString().padStart(2, '0'))
-    .replace(/d/g, day.toString())
+    .replace(/ d/g, ` ${day}`)
     .replace(/yyyy/g, year.toString())
 }
 

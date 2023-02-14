@@ -21,13 +21,19 @@ const fields = [
   'totalCount',
 ]
 
+const days = 5 * 7
+
 const parseDate = (dateString: string): Date => {
-  const date = new Date()
-  const [year, month, day] = dateString.split('-')
-  date.setFullYear(Number(year))
-  date.setMonth(Number(month) - 1)
-  date.setDate(Number(day))
-  return date
+  try {
+    const date = new Date()
+    const [year, month, day] = dateString.split('-')
+    date.setFullYear(Number(year))
+    date.setMonth(Number(month) - 1)
+    date.setDate(Number(day))
+    return date
+  } catch (e) {
+    return new Date(0)
+  }
 }
 
 const appendDataToCSVFile = async (data: {
@@ -55,7 +61,7 @@ const appendDataToCSVFile = async (data: {
   fs.writeFileSync(csvFilePath, parser.parse(jsonObj))
   fs.writeFileSync(
     csvFilePath.replace('.csv', '.md'),
-    `# Stats\n\n## 14 Day span\n\n${markdown}`
+    `# Stats\n\n## ${days} Day span\n\n${markdown}`
   )
 
   return jsonObj
@@ -107,7 +113,7 @@ const main = async () => {
       if (!scene.date) return false
       const sceneDate = parseDate(scene.date)
       const diff = Math.abs(Number(latestDate) - Number(sceneDate))
-      return diff < 1000 * 60 * 60 * 24 * (3 * 7 - 1)
+      return diff < 1000 * 60 * 60 * 24 * (days - 1)
     })
     .forEach((scene) => {
       const date = scene.date as string
@@ -200,10 +206,23 @@ const main = async () => {
 
   const json = await appendDataToCSVFile(csvData)
 
+  logUpdate('')
   logUpdate.done()
   const terminalWidth = process.stdout.columns
-  for (const [performer, performerData] of Object.entries(performers)) {
-    const performerName = ` ${performer} `
+  const array = Object.entries(performers).sort((a, b) => {
+    return (
+      Object.keys(a[1])
+        .map((date) => parseDate(date).getTime())
+        .sort((a, b) => b - a)[0] -
+      Object.keys(b[1])
+        .map((date) => parseDate(date).getTime())
+        .sort((a, b) => b - a)[0]
+    )
+  })
+  for (const [performer, performerData] of array) {
+    const performerName = ` ${performer} [${
+      array.map(([key, _]) => key).indexOf(performer) + 1
+    }/${array.length}] `
     const padding = Math.floor((terminalWidth - performerName.length) / 2)
     const paddingString = chalk.yellowBright('─'.repeat(padding))
     logUpdate(
@@ -234,80 +253,54 @@ const buildGraph = async (
     if (!weeks[weekIndex]) weeks[weekIndex] = {}
     weeks[weekIndex][date] = data[date]
   })
+
+  const maxLenTime = 8
+  const count = Math.floor((terminalWidth - maxLenTime - 3) / 7)
+
   const series = weeks
     .sort((a, b) => {
-      const aDate = Object.keys(a)[0]
-      const bDate = Object.keys(b)[0]
+      const aDate = Object.keys(a).filter((x) => {
+        a[x].duration > 0
+      })[0]
+      const bDate = Object.keys(b).filter((x) => {
+        b[x].duration > 0
+      })[0]
       return Number(parseDate(aDate)) - Number(parseDate(bDate))
     })
     .map((week) =>
       Object.values(week)
-        .map((x) => [
-          x.duration,
-          x.duration,
-          x.duration,
-          x.duration,
-          x.duration,
-          x.duration,
-          x.duration,
-          x.duration,
-          x.duration,
-          x.duration,
-        ])
+        .map((x) => Array(count).fill(x.duration))
         .flat()
     )
   const series2 = Object.values(data)
-    .map((obj) => [
-      obj.duration,
-      obj.duration,
-      obj.duration,
-      obj.duration,
-      obj.duration,
-      obj.duration,
-      obj.duration,
-      obj.duration,
-      obj.duration,
-      obj.duration,
-    ])
+    .map((obj) => Array(count).fill(obj.duration))
     .flat()
-  const maxLenTime = Math.max(
-    ...series.map((x) =>
-      Math.max(...x.map((x) => secondsToTime(x, true).length))
-    )
-  )
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-  const daysStr = `${' '.repeat(maxLenTime + 10)}${days
-    .map((x) => x.padEnd(10))
-    .join('')}`
 
-  const daysStr2 = `${' '.repeat(maxLenTime + 10)}${Array(weeks.length)
+  const daysStr2 = `${' '.repeat(maxLenTime + count)}${Array(weeks.length)
     .fill(days)
     .flat()
-    .map((x) => x.padEnd(10))
+    .map((x) => x.padEnd(count))
     .join('')}`
 
+  const colors = [
+    asciichart.green,
+    asciichart.cyan,
+    asciichart.red,
+    asciichart.blue,
+    asciichart.magenta,
+  ]
   const useFull = daysStr2.length <= terminalWidth
   const graph = asciichart.plot(useFull ? series2 : series, {
     height: size,
-    colors: [
-      asciichart.blue,
-      asciichart.green,
-      asciichart.yellow,
-      asciichart.red,
-    ],
+    colors,
     format: (x: number) => {
-      const time = secondsToTime(x, true)
+      const time = secondsToTime(Math.max(x, 0), true)
       return ' '.repeat(maxLenTime - time.length) + time
     },
   })
   let description = ''
   if (!useFull) {
-    const colors = [
-      asciichart.blue,
-      asciichart.green,
-      asciichart.yellow,
-      asciichart.red,
-    ]
     const descriptors: string[] = []
     weeks.forEach((week, index) => {
       const dateString = Object.keys(week).sort((a, b) => {
@@ -325,9 +318,7 @@ const buildGraph = async (
       description = description.replace(/:sep:/g, '\n')
     else description = description.replace(/:sep:/g, ' '.repeat(3))
   }
-  const graphStr = `${graph}\n${
-    useFull ? daysStr2 : daysStr
-  }\n\n${description}\n`
+  const graphStr = `${graph}\n\n${description}\n`
   logUpdate(graphStr)
   logUpdate.done()
 }
