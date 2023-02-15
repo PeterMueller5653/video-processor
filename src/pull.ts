@@ -174,7 +174,7 @@ const main = async (debug: boolean = false) => {
     const path = file.replace(mainPath, './ts').replace('.mp4', '.mp4.part')
     await sftp
       .fastGet(file, path, {
-        concurrency: 2,
+        concurrency: 12,
         chunkSize: 1024 * 1024,
         step,
       })
