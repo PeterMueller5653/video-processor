@@ -29,6 +29,10 @@ const main = async () => {
       chalk.whiteBright('    Generate stats')
     )
     console.log(
+      chalk.yellow('  -fs,  --full-stats'),
+      chalk.whiteBright('  Generate full stats')
+    )
+    console.log(
       chalk.yellow('  -c,   --check'),
       chalk.whiteBright('    Check for files to pull')
     )
@@ -81,7 +85,9 @@ const main = async () => {
     args.includes('-pr') ||
     args.includes('--full') ||
     args.includes('-f')
+  const fullStats = args.includes('--full-stats') || args.includes('-fs')
   const doStats =
+    fullStats ||
     args.includes('--stats') ||
     args.includes('-s') ||
     args.includes('--full') ||
@@ -177,7 +183,7 @@ const main = async () => {
 
   if (doStats) {
     logUpdate('Generating stats')
-    await stats()
+    await stats(fullStats)
     logUpdate(chalk.greenBright('Finished generating stats'))
     logUpdate.done()
   }

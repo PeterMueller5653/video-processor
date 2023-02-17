@@ -67,7 +67,7 @@ const appendDataToCSVFile = async (data: {
   return jsonObj
 }
 
-const main = async () => {
+const main = async (full: Boolean = false) => {
   const dateGroups: {
     [key: string]: {
       size: number
@@ -209,27 +209,29 @@ const main = async () => {
   logUpdate('')
   logUpdate.done()
   const terminalWidth = process.stdout.columns
-  const array = Object.entries(performers).sort((a, b) => {
-    return (
-      Object.keys(a[1])
-        .map((date) => parseDate(date).getTime())
-        .sort((a, b) => b - a)[0] -
-      Object.keys(b[1])
-        .map((date) => parseDate(date).getTime())
-        .sort((a, b) => b - a)[0]
-    )
-  })
-  for (const [performer, performerData] of array) {
-    const performerName = ` ${performer} [${
-      array.map(([key, _]) => key).indexOf(performer) + 1
-    }/${array.length}] `
-    const padding = Math.floor((terminalWidth - performerName.length) / 2)
-    const paddingString = chalk.yellowBright('─'.repeat(padding))
-    logUpdate(
-      `${paddingString}${chalk.redBright(performerName)}${paddingString}`
-    )
-    logUpdate.done()
-    await buildGraph(performerData, 5)
+  if (full) {
+    const array = Object.entries(performers).sort((a, b) => {
+      return (
+        Object.keys(a[1])
+          .map((date) => parseDate(date).getTime())
+          .sort((a, b) => b - a)[0] -
+        Object.keys(b[1])
+          .map((date) => parseDate(date).getTime())
+          .sort((a, b) => b - a)[0]
+      )
+    })
+    for (const [performer, performerData] of array) {
+      const performerName = ` ${performer} [${
+        array.map(([key, _]) => key).indexOf(performer) + 1
+      }/${array.length}] `
+      const padding = Math.floor((terminalWidth - performerName.length) / 2)
+      const paddingString = chalk.yellowBright('─'.repeat(padding))
+      logUpdate(
+        `${paddingString}${chalk.redBright(performerName)}${paddingString}`
+      )
+      logUpdate.done()
+      await buildGraph(performerData, 5)
+    }
   }
   const title = ` Total Average `
   const padding = Math.floor((terminalWidth - title.length) / 2)

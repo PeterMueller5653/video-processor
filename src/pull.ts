@@ -48,6 +48,7 @@ const main = async (debug: boolean = false) => {
   let totalFileSize = 0
   let downloaded = 0
   const filesToPull: string[] = []
+  let skipping = 0
 
   for (const folder of folders.filter((folder) => folder.type === 'd')) {
     logUpdate(chalk.blue(`Loading files in ${chalk.yellow(folder.name)}`))
@@ -76,6 +77,7 @@ const main = async (debug: boolean = false) => {
       log(
         `Marked ${folder.name} to be skipped processing because it still has files being recorded`
       )
+      skipping++
     }
 
     for (const file of filtered) {
@@ -174,7 +176,9 @@ const main = async (debug: boolean = false) => {
     const path = file.replace(mainPath, './ts').replace('.mp4', '.mp4.part')
     await sftp
       .fastGet(file, path, {
-        concurrency: 12,
+        concurrency: Math.floor(
+          12 / (skipping > 0 ? (skipping > 1 ? (skipping > 2 ? 8 : 4) : 2) : 1)
+        ),
         chunkSize: 1024 * 1024,
         step,
       })
